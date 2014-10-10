@@ -304,17 +304,17 @@ self.leapdir, self.ligand_name, prefix)
         print "SETTING UP LIGAND STRAIN CALC---------"
         filename='%s/getligand.ptraj' % self.gbdir
         if self.gbmin==True:
-            outconf='%s/%s-ligand-cpxmin.mol2' % (self.leapdir, self.ligand_name)
+            self.minligandcpx='%s/%s-ligand-cpxmin.rst' % (self.leapdir, self.ligand_name)
             prmtop='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
-            # now strip with ptraj
-            amber_file_formatter.write_ptraj_strip(filename, self.mincpx, outconf)
+            # now strip with ptraj to get an restart file for MMPBSA
+            amber_file_formatter.write_ptraj_strip(filename, self.mincpx, self.minligandcpx)
             command='cpptraj {0}/{1}-complex.top {2}'.format(self.leapdir, self.ligand_name, filename)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix='strip-ligand', type='ptraj')
             prefix='mingb-ligand'
         else:
             # rebuild ligand topology only if using explicit solvent
-            # use minimized ligand outconf as input structure
+            # use minimized ligand outconf mol2 as input structure
             outconf='%s/%s-ligand-cpxmin.solv.mol2' % (self.leapdir, self.ligand_name)
             frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
             amber_file_formatter.write_leap(dir=self.leapdir, prefix=leap_prefix, ligand_name=self.ligand_name, radii=self.radii, frcmodfile=frcmodfile, newligandfile=outconf, complex=False, gbmin=False)
@@ -355,37 +355,50 @@ self.leapdir, self.ligand_name, prefix)
 
     def run_mmgbsa(self, complex=True):
         #setup files for MMGBSA.py in Amber14 to run MMGB free energy difference calcs for complex
+        inputfile='%s/mmgb.in' % self.gbdir
         if complex==True:
+            prefix='cpx'
             start=0
             interval=1
             if self.md==True:
-                traj='%s/md.crd' % (self.gbdir)
                 finish=-1
+                if self.gbmin==True:
+                    traj='%s/gbmd.mdcrd' % (self.gbdir)
+                    solvcomplex=None
+                else:
+                    traj='%s/md.mdcrd' % (self.gbdir)
+                    solvcomplex='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
             else:
-                traj='%s/min.rst' % (self.gbdir)
                 finish=1
-            solvcomplex='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
+                if self.gbmin==True:
+                    traj='%s/gbmin.rst' % (self.gbdir)
+                    solvcomplex=None
+                else:
+                    traj='%s/min.rst' % (self.gbdir)
+                    solvcomplex='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
             complex='%s/%s-complex.top' % (self.leapdir, self.ligand_name)
             protein='%s/%s-protein.top' % (self.leapdir, self.ligand_name)
             ligand='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
-            inputfile='%s/mmgb.in' % self.gbdir
-            prefix='cpx'
             self.mmgbsa_guts(prefix, start, finish, solvcomplex, complex, traj, interval=1, protein=protein, ligand=ligand)
         else:
             #setup files for MMGBSA.py in Amber14 to run MMGB free energy for ligand strain
             start=0
             interval=1
             finish=1
-            solvcomplex='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
-            traj='%s/%s-ligand.solv.crd' % (self.leapdir, self.ligand_name)
-            complex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
+            if self.gbmin==True:
+                solvcomplex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
+                initial_traj=self.minligandcpx
+                final_traj='%s/gbmin-ligand.rst' % (self.gbdir)
+            else:
+                solvcomplex='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
+                initial_traj='%s/%s-ligand.solv.crd' % (self.leapdir, self.ligand_name)
+                final_traj='%s/min-ligand.rst' % (self.gbdir)
             # first get initial GB energy of ligand in complex
             prefix='ligcpx'
-            self.mmgbsa_guts(prefix, start, finish, solvcomplex, complex, traj, interval=1)
+            self.mmgbsa_guts(prefix, start, finish, solvcomplex, complex, initial_traj, interval=1)
             # next GB energy of ligand minimized in solution
             prefix='ligsolv'
-            traj='%s/min-ligand.rst' % (self.gbdir)
-            self.mmgbsa_guts(prefix, start, finish, solvcomplex, complex, traj, interval=1)
+            self.mmgbsa_guts(prefix, start, finish, solvcomplex, complex, final_traj, interval=1)
         return
 
     def print_table(self):

@@ -139,13 +139,26 @@ run GB
     fhandle.close()
 
 def write_ptraj_strip(filename, inconf, outconf):
-    if 'mol2' not in outconf:
-        print "need mol2 complex-miminized ligand conf"
-        sys.exit()
+    types=['mol2', 'rst', 'crd', 'pdb']
+    mapper=dict()
+    mapper['mol2']='mol2'
+    mapper['rst']='restart'
+    mapper['crd']='inpcrd'
+    mapper['pdb']='pdb'
+    files=dict()
+    types=dict()
+    files['in']=inconf
+    files['out']=outconf
+    for option in files.keys():
+        base=os.path.basename(files[option])
+        types[option]=base.split('.')[1]
+        if types[option] not in types:
+            print "FILETYPE NOT SUPPORTED FOR PTRAJ: %s" % filetype
+            sys.exit()
     fhandle=open(filename, 'w')
     fhandle.write('''\
-trajin %s restart
+trajin {0} {1}
 strip !:MOL
-trajout %s mol2''' % (inconf, outconf)) 
+trajout {2} {3}''' % (inconf, types['in'],  outconf, types['out'])) 
     fhandle.close()
 

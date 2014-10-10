@@ -11,7 +11,7 @@ def main(proteinfile, ligandfile, ligand_charge, gb_model, md, maxcycles=50000):
     mol.run_ligand_strain()
     mol.run_mmgbsa(complex=True)
     # run after generating all results to get a table
-    mol.print_table()
+    #mol.print_table()
 
 
 def parse_cmdln():
