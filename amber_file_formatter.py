@@ -31,7 +31,7 @@ saveAmberParm prot {4}/{3}-protein.top {4}/{3}-protein.crd
 
 
 saveAmberParm complex {4}/{3}-complex.top {4}/{3}-complex.crd
-'''.format((newligandfile,proteinfile, radii, ligand_name, dir))
+'''.format(newligandfile,proteinfile, radii, ligand_name, dir))
             if gbmin==False:
                 fhandle.write('''\
 solvateOct complex TIP3PBOX 14.0
@@ -52,9 +52,8 @@ savepdb mol {1}/{2}-ligand.solv.amber.pdb'''.format( newligandfile, dir, ligand_
 
 def add_belly(fhandle, protein_belly):
     fhandle.write('''\
-  ibelly=1, bellymask = ":%s",
-  /\n''' % protein_belly)
-    fhandle.close()
+  ibelly=1, bellymask = ":%s"''' % protein_belly)
+    return fhandle
 
 def add_restraints(fhandle, ligand_restraints, protein_belly, restraint_k=0.5):
     if ligand_restraints==True and protein_belly!=None: 
@@ -93,7 +92,7 @@ minimization
   drms   = 0.6,
   cut = 12.0,''' % maxcycles)
         if protein_belly!=None:
-            add_belly(fhandle, protein_belly)
+            fhandle=add_belly(fhandle, protein_belly)
     if gbmin==True:
         fhandle=open(filename, 'w')
         fhandle.write('''\
@@ -102,13 +101,13 @@ minimization
   imin = 1, maxcyc = %s, ntmin = 1,
   ncyc   = 100, 
   ntx = 1, ntc = 1, ntf = 1,
-  ntb = 1, ntp = 0,
+  ntb = 0, ntp = 0,
   ntwx = 1000, ntwe = 0, ntpr = 1000,
   igb=%s,
   drms   = 0.6,
-  cut = 12.0,''' % (maxcycles, gb))
+  cut = 12.0,''' % (maxcycles, gb_model))
         if protein_belly!=None:
-            add_belly(fhandle, protein_belly)
+            fhandle=add_belly(fhandle, protein_belly)
     if md==True:
         filename='%s/%s.in' % (dir, prefix)
         fhandle=open(filename, 'w')
@@ -124,6 +123,9 @@ nvt equilibration with Langevin therm, SHAKE Hbonds
   nscm = 100,''' % steps)
         if protein_belly!=None:
             add_belly(fhandle, protein_belly)
+    fhandle.write('/\n')
+    fhandle.close()
+    return
 
 def write_mmgbsa_input(filename, model, start, interval, finish):
     fhandle=open(filename, 'w')
@@ -139,7 +141,7 @@ run GB
     fhandle.close()
 
 def write_ptraj_strip(filename, inconf, outconf):
-    types=['mol2', 'rst', 'crd', 'pdb']
+    filetypes=['mol2', 'rst', 'crd', 'pdb']
     mapper=dict()
     mapper['mol2']='mol2'
     mapper['rst']='restart'
@@ -151,14 +153,14 @@ def write_ptraj_strip(filename, inconf, outconf):
     files['out']=outconf
     for option in files.keys():
         base=os.path.basename(files[option])
-        types[option]=base.split('.')[1]
-        if types[option] not in types:
-            print "FILETYPE NOT SUPPORTED FOR PTRAJ: %s" % filetype
+        types[option]=base.split('.')[-1]
+        if types[option] not in filetypes:
+            print "FILETYPE NOT SUPPORTED FOR PTRAJ: %s" % types[option]
             sys.exit()
     fhandle=open(filename, 'w')
     fhandle.write('''\
 trajin {0} {1}
 strip !:MOL
-trajout {2} {3}''' % (inconf, types['in'],  outconf, types['out'])) 
+trajout {2} {3}'''.format(inconf, types['in'],  outconf, types['out'])) 
     fhandle.close()
 

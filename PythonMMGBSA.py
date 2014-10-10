@@ -62,7 +62,9 @@ class ambermol:
 MD, for processing with MMGB scores'''
     def __init__(self, proteinfile=None, ligandfile=None, protein_radius=None, ligand_restraints=None, charge_method=None, ligand_charge=None, gbmin=False, gb_model=5, restraint_k=0.5, md=False, md_steps=100000, maxcycles=50000, gpu=False, verbose=False):
         self.verbose=verbose
-        self.restraint_k=restraint_k
+        # with belly, restraint K not used
+        # self.restraint_k=restraint_k
+        # print "RESTRAINT FORCE %s kcal/mol*A2" % restraint_k
         self.gb_model=int(gb_model)
         self.radii=get_pbbond_radii(int(gb_model))
         self.gbmin=gbmin
@@ -103,14 +105,12 @@ MD, for processing with MMGB scores'''
         else:
             self.protein_radius=protein_radius
             print "PROTEIN RESTRAINED AT RADIUS %s AROUND LIGAND" % self.protein_radius
-            print "RESTRAINT FORCE %s kcal/mol*A2" % restraint_k
         if not ligand_restraints:
             self.ligand_restraints=None
             print "NO LIGAND RESTRAINTS USED"
         else:
             self.ligand_restraints=True
             print "RESTRAINING LIGAND ATOMS"
-            print "RESTRAINT FORCE %s kcal/mol*A2" % restraint_k
         if not charge_method:
             print "USING AM1-BCC CHARGE METHOD"
             self.charge_method='bcc'
@@ -135,44 +135,12 @@ MD, for processing with MMGB scores'''
             command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -r {1}/{2}.rst'.format(self.program, self.gbdir, prefix, prmtop, inpcrd)
         return command
 
-    def run_antechamber(self):
-        #check to see if file exists
-        if not os.path.exists(self.antdir):
-            os.mkdir(self.antdir)
-        print "--------------------------------------"
-        print "RUNNING ANTECHAMBER ON LIGAND---------"
-        frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
-        if os.path.exists(self.amberligandfile) and os.path.exists(frcmodfile):
-            print "ALREADY HAVE CHARGED MOL2 AND FRCMOD FILES FOR %s" % self.ligand_name
-            sys.exit()
-
-        #make new mol2 file for ligand, including charges
-        command='%s/bin/antechamber -i %s -fi mol2 -o %s -fo mol2 -c %s -nc %s' % (os.environ['AMBERHOME'], self.ligandfile,  self.amberligandfile, self.charge_method,self.ligand_charge)
-        output, err=run_linux_process(command)
-        prefix='ante'
-        self.check_output(output, err, prefix, type='ante')
-        #make frcmod file to catch missing parameters
-        prefix='parmchk'
-        command='%s/bin/parmchk -i %s -o %s -f mol2' % (os.environ['AMBERHOME'], self.amberligandfile, frcmodfile)
-        output, err=run_linux_process(command)
-        self.check_output(output, err, prefix, type='ante')
-
-        #make amber formattable mol2 file
-        #command='%s/bin/antechamber -i %s -fi mol2 -o %s/%s.amber.mol2 -fo mol2 -an y' % (os.environ['AMBERHOME'], self.ligandfile, self.antdir, self.ligand_name)
-        #output, err=run_linux_process(command)
-        #prefix='mol2convert'
-        #self.check_output(output, err, prefix, type='ante')
-
-        # clean up
-        #os.system('cd %s' % self.antdir)
-        os.system('rm ANTECHAMBER* ATOMTYPE.INF NEWPDB.PDB PREP.INF  rm sqm.*')
-
     def check_output(self, output, err, prefix, type):
         types=['leap', 'ante', 'ptraj', 'md', 'MMGBSA']
         outdirs=[self.leapdir, self.antdir, self.gbdir, self.gbdir, self.gbdir]
         typedict=dict()
-        for (t,o) in zip(types, outdirs):
-            typedict[type]=o
+        for (t,odir) in zip(types, outdirs):
+            typedict[t]=odir
         dir=typedict[type]
         errors=False
         if 'rror' in err or 'rror' in output:
@@ -205,6 +173,39 @@ MD, for processing with MMGB scores'''
             pass
         return
 
+    def run_antechamber(self):
+        #check to see if file exists
+        if not os.path.exists(self.antdir):
+            os.mkdir(self.antdir)
+        frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
+        if os.path.exists(self.amberligandfile) and os.path.exists(frcmodfile):
+            print "ALREADY HAVE CHARGED MOL2 AND FRCMOD FILES FOR %s" % self.ligand_name
+        else:
+            print "--------------------------------------"
+            print "RUNNING ANTECHAMBER ON LIGAND---------"
+            #make new mol2 file for ligand, including charges
+            command='%s/bin/antechamber -i %s -fi mol2 -o %s -fo mol2 -c %s -nc %s' % (os.environ['AMBERHOME'], self.ligandfile,  self.amberligandfile, self.charge_method,self.ligand_charge)
+            output, err=run_linux_process(command)
+            prefix='ante'
+            self.check_output(output, err, prefix, type='ante')
+            #make frcmod file to catch missing parameters
+            prefix='parmchk'
+            command='%s/bin/parmchk -i %s -o %s -f mol2' % (os.environ['AMBERHOME'], self.amberligandfile, frcmodfile)
+            output, err=run_linux_process(command)
+            self.check_output(output, err, prefix, type='ante')
+        
+            #make amber formattable mol2 file
+            #command='%s/bin/antechamber -i %s -fi mol2 -o %s/%s.amber.mol2 -fo mol2 -an y' % (os.environ['AMBERHOME'], self.ligandfile, self.antdir, self.ligand_name)
+            #output, err=run_linux_process(command)
+            #prefix='mol2convert'
+            #self.check_output(output, err, prefix, type='ante')
+        
+            # clean up
+            #os.system('cd %s' % self.antdir)
+            os.system('rm ANTECHAMBER* ATOMTYPE.INF NEWPDB.PDB PREP.INF  rm sqm.*')
+        return
+
+
     def run_leap(self):
         if not os.path.exists(self.leapdir):
             os.mkdir(self.leapdir)
@@ -219,9 +220,11 @@ self.leapdir, self.ligand_name, prefix)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix, type='leap')
         # use ante-MMPBSA to make sure topology pieces are all correct
-        print "GETTING SEPARATE TOPOLOGIES"
-        command='ante-MMPBSA.py -p {0}/{1}-complex.solv.top -c {0}/{1}-complex.solv.crd -s :WAT -r {0}/{1}-protein.top -l {0}/{1}%s-ligand.top
--n :MOL --radii={2}'.format(self.leapdir, self.ligand_name, self.radii)
+        #print "GETTING SEPARATE TOPOLOGIES"
+        #if self.gbmin==True:
+        #    command='ante-MMPBSA.py -p {0}/{1}-complex.top -c {0}/{1}-complex.crd -s :WAT -r {0}/{1}-protein.top -l {0}/{1}%s-ligand.top -n :MOL --radii={2}'.format(self.leapdir, self.ligand_name, self.radii)
+        #else:
+        #command='ante-MMPBSA.py -p {0}/{1}-complex.solv.top -c {0}/{1}-complex.solv.crd -s :WAT -r {0}/{1}-protein.top -l {0}/{1}%s-ligand.top -n :MOL --radii={2}'.format(self.leapdir, self.ligand_name, self.radii)
         return
 
 
@@ -293,9 +296,9 @@ self.leapdir, self.ligand_name, prefix)
         else:
             protein_belly=None
         self.protein_belly=protein_belly
-        simulation_guts(self, prefix, prmtop, inpcrd)
+        self.simulation_guts(prefix, prmtop, inpcrd)
         if self.md==True:
-            simulation_guts(self, mdprefix, prmtop, inpcrd)
+            self.simulation_guts(mdprefix, prmtop, inpcrd)
         return
 
     def run_ligand_strain(self):
@@ -306,6 +309,7 @@ self.leapdir, self.ligand_name, prefix)
         if self.gbmin==True:
             self.minligandcpx='%s/%s-ligand-cpxmin.rst' % (self.leapdir, self.ligand_name)
             prmtop='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
+            inpcrd=self.minligandcpx
             # now strip with ptraj to get an restart file for MMPBSA
             amber_file_formatter.write_ptraj_strip(filename, self.mincpx, self.minligandcpx)
             command='cpptraj {0}/{1}-complex.top {2}'.format(self.leapdir, self.ligand_name, filename)
@@ -316,22 +320,25 @@ self.leapdir, self.ligand_name, prefix)
             # rebuild ligand topology only if using explicit solvent
             # use minimized ligand outconf mol2 as input structure
             outconf='%s/%s-ligand-cpxmin.solv.mol2' % (self.leapdir, self.ligand_name)
-            frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
-            amber_file_formatter.write_leap(dir=self.leapdir, prefix=leap_prefix, ligand_name=self.ligand_name, radii=self.radii, frcmodfile=frcmodfile, newligandfile=outconf, complex=False, gbmin=False)
-            command='{0}/bin/tleap -f {1}/{2}-{3}-leaprc'.format(os.environ['AMBERHOME'], self.leapdir, self.ligand_name, prefix)
-            output, err=run_linux_process(command)
-            self.check_output(output, err, prefix='ligsolv', type='leap')
-            print "RAN LEAP for RESOLVATING LIGAND"
-            prmtop='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
             # now strip with ptraj
             amber_file_formatter.write_ptraj_strip(filename, self.mincpx, outconf)
             command='cpptraj {0}/{1}-complex.solv.top {2}'.format(self.leapdir, self.ligand_name, filename)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix='strip-ligand', type='ptraj')
+            frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
+            # rebuild ligand topology 
+            leap_prefix='ligresolv'
+            amber_file_formatter.write_leap(dir=self.leapdir, prefix=leap_prefix, ligand_name=self.ligand_name, radii=self.radii, frcmodfile=frcmodfile, newligandfile=outconf, complex=False, gbmin=False)
+            command='{0}/bin/tleap -f {1}/{2}-{3}-leaprc'.format(os.environ['AMBERHOME'], self.leapdir, self.ligand_name, leap_prefix)
+            output, err=run_linux_process(command)
+            self.check_output(output, err, prefix=leap_prefix, type='leap')
+            print "RAN LEAP for RESOLVATING LIGAND"
             prefix='min-ligand'
+            inpcrd='%s/%s-ligand.solv.crd' % (self.leapdir, self.ligand_name)
+            prmtop='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
         # minimize ligand in solution (or with GB solvent)
         # see diff in complex energy and solvated energy
-        simulation_guts(prefix, prmtop, outconf)
+        self.simulation_guts(prefix, prmtop, inpcrd)
         print "MINIMIZED LIGAND"
         self.run_mmgbsa(complex=False)
         print "MMGB CALC FINISHED ON LIGAND"
@@ -363,18 +370,18 @@ self.leapdir, self.ligand_name, prefix)
             if self.md==True:
                 finish=-1
                 if self.gbmin==True:
-                    traj='%s/gbmd.mdcrd' % (self.gbdir)
+                    traj='%s/gbmd-cpx.mdcrd' % (self.gbdir)
                     solvcomplex=None
                 else:
-                    traj='%s/md.mdcrd' % (self.gbdir)
+                    traj='%s/md-cpx.mdcrd' % (self.gbdir)
                     solvcomplex='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
             else:
                 finish=1
                 if self.gbmin==True:
-                    traj='%s/gbmin.rst' % (self.gbdir)
+                    traj='%s/gbmin-cpx.rst' % (self.gbdir)
                     solvcomplex=None
                 else:
-                    traj='%s/min.rst' % (self.gbdir)
+                    traj='%s/min-cpx.rst' % (self.gbdir)
                     solvcomplex='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
             complex='%s/%s-complex.top' % (self.leapdir, self.ligand_name)
             protein='%s/%s-protein.top' % (self.leapdir, self.ligand_name)
@@ -386,14 +393,18 @@ self.leapdir, self.ligand_name, prefix)
             interval=1
             finish=1
             if self.gbmin==True:
-                solvcomplex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
+                solvcomplex=None
+                complex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
                 initial_traj=self.minligandcpx
                 final_traj='%s/gbmin-ligand.rst' % (self.gbdir)
             else:
                 solvcomplex='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
+                complex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
                 initial_traj='%s/%s-ligand.solv.crd' % (self.leapdir, self.ligand_name)
                 final_traj='%s/min-ligand.rst' % (self.gbdir)
             # first get initial GB energy of ligand in complex
+            import pdb
+            pdb.set_trace()
             prefix='ligcpx'
             self.mmgbsa_guts(prefix, start, finish, solvcomplex, complex, initial_traj, interval=1)
             # next GB energy of ligand minimized in solution
@@ -463,15 +474,16 @@ self.leapdir, self.ligand_name, prefix)
         ligands=all_values.keys()
         sorted_ligands=sorted(ligands, key=lambda x: all_values[x]['MMGB'])
         ohandle=open('%s/sorted_results.tbl' % dir, 'w')
-        keyorder=['MMGB-strain', 'MMGB', 'strain', 'vdW', 'eel_inter', 'eel/EGB', 'EGB', 'E_surf', 'E_lig'] 
-        entry=''.join(['%s\t' % x for x in keyorder])
-        entry=''.join(['name\t', entry, '\n'])
+        formatkeyorder=['name  MMGB+str', 'MMGB  strain  vdW  eel_inter  eel/EGB  EGB  E_surf  E_lig'] 
+        entry=''.join(['%s\t' % x for x in formatkeyorder])
+        entry=''.join([ entry, '\n'])
         ohandle.write(entry)
         print entry
+        keyorder=['MMGB+str', 'MMGB', 'strain', 'vdW', 'eel_inter', 'eel/EGB', 'EGB' , 'E_surf',  'E_lig'] 
         for ligand in sorted_ligands:
-            all_values[ligand]['MMGB-strain']+=all_values[ligand]['MMGB']+all_values[ligand]['strain']
+            all_values[ligand]['MMGB+str']=all_values[ligand]['MMGB']+all_values[ligand]['strain']
             name='%s\t' % ligand
-            entry=''.join(['%0.3f\t' % round(float(all_values[ligand][x]), 3) for x in keyorder])
+            entry=''.join(['%0.2f\t' % round(float(all_values[ligand][x]), 2) for x in keyorder])
             entry=''.join([name, entry, '\n'])
             ohandle.write(entry)
             print entry
