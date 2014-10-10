@@ -5,9 +5,9 @@ import optparse
 
 def main(proteinfile, ligandfile, ligand_charge, gb_model, md, maxcycles=50000):
     mol=PythonMMGBSA.ambermol(proteinfile, ligandfile, gb_model=gb_model, ligand_charge=ligand_charge, gpu=False, ligand_restraints=True, protein_radius=0.1, maxcycles=maxcycles, md=md)
-    #mol.run_antechamber()
+    mol.run_antechamber()
     mol.run_leap()
-    mol.run_simulation() 
+    mol.run_cpx_simulation() 
     mol.run_ligand_strain()
     mol.run_mmgbsa(complex=True)
     # run after generating all results to get a table
@@ -37,8 +37,7 @@ if __name__=="__main__":
     if options.md==True:
         main(proteinfile=options.proteinfile, ligandfile=options.ligandfile, ligand_charge=options.ligand_charge, gb_model=options.gb_model, maxcycles=options.maxcycles, md=True)
     else:
-        main(proteinfile=options.proteinfile, ligandfile=options.ligandfile,
-ligand_charge=options.ligand_charge, gb_model=options.gb_model,
-maxcycles=options.maxcycles, md=False)
+        main(proteinfile=options.proteinfile, ligandfile=options.ligandfile, ligand_charge=options.ligand_charge, gb_model=options.gb_model, maxcycles=options.maxcycles, md=False)
+
 
 

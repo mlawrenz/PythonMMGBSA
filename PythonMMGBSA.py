@@ -60,10 +60,12 @@ def get_belly_restraints(protein_radius, prmtop, inpcrd, ligand_restraints=False
 class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
-    def __init__(self, proteinfile=None, ligandfile=None, protein_radius=None, ligand_restraints=None, charge_method=None, ligand_charge=None, gb_model=5, restraint_k=0.5, md=False, md_steps=100000, maxcycles=50000, gpu=False, verbose=False):
+    def __init__(self, proteinfile=None, ligandfile=None, protein_radius=None, ligand_restraints=None, charge_method=None, ligand_charge=None, gbmin=False, gb_model=5, restraint_k=0.5, md=False, md_steps=100000, maxcycles=50000, gpu=False, verbose=False):
         self.verbose=verbose
         self.restraint_k=restraint_k
         self.gb_model=int(gb_model)
+        self.radii=get_pbbond_radii(int(gb_model))
+        self.gbmin=gbmin
         print "--------------------------------------"
         print "SYSTEM SET UP-------------------------"
         print "USING MMGB=%s MODEL" % self.gb_model
@@ -208,26 +210,67 @@ MD, for processing with MMGB scores'''
             os.mkdir(self.leapdir)
         print "--------------------------------------"
         print "RUNNING LEAP FOR COMPLEX--------------"
-        radii=get_pbbond_radii(self.gb_model)
         frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
         prefix='cpx'
         reload(amber_file_formatter)
-        amber_file_formatter.write_leap(self.leapdir, prefix, self.ligand_name, radii, frcmodfile, self.amberligandfile, self.proteinfile, complex=True)
+        amber_file_formatter.write_leap(self.leapdir, prefix, self.ligand_name, self.radii, frcmodfile, self.amberligandfile, self.proteinfile, complex=True)
+
         command='%s/bin/tleap -f %s/%s-%s-leaprc' % (os.environ['AMBERHOME'],
 self.leapdir, self.ligand_name, prefix)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix, type='leap')
         # use ante-MMPBSA to make sure topology pieces are all correct
         print "GETTING SEPARATE TOPOLOGIES"
-        command='ante-MMPBSA.py -p {0}/{1}-complex.solv.top -c {0}/{1}-complex.solv.crd -s :WAT -r {0}/{1}-protein.top -l {0}/{1}%s-ligand.top -n :MOL --radii={2}'.format(self.leapdir, self.ligand_name, radii)
+        command='ante-MMPBSA.py -p {0}/{1}-complex.solv.top -c {0}/{1}-complex.solv.crd -s :WAT -r {0}/{1}-protein.top -l {0}/{1}%s-ligand.top
+-n :MOL --radii={2}'.format(self.leapdir, self.ligand_name, self.radii)
         return
 
 
+    def simulation_guts(self, prefix, prmtop, inpcrd):
+        # write simulation run input files
+        # pass in prefix, prmtop, and inpcrd appropriate for gb vs. explicit
+        print "--------------------------------------"
+        if self.gbmin==True:
+            print "--------------------------------------"
+            print "RUNNING MINIMIZATION WITH GB IMPLICIT-"
+            amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, gbmin=self.gbmin, gb_model=self.gb_model, protein_belly=self.protein_belly, maxcycles=self.maxcycles)
+        else:
+            print "RUNNING MINIMIZATION WITH EXPLICIT----"
+            amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, protein_belly=self.protein_belly, maxcycles=self.maxcycles)
 
-    def run_simulation(self):
+        command=self.get_simulation_commands(prefix, prmtop, inpcrd)
+        output, err=run_linux_process(command)
+        self.check_output(output, err, prefix=prefix, type='md')
+        self.mincpx='%s/%s.rst' % (self.gbdir, prefix)
+        if self.md==True:
+            print "--------------------------------------"
+            inpcrd=self.mincpx
+            if self.gbmin==True:
+                print "RUNNING MD SIMULATION WITH GB IMPLICIT"
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  gbmin=self.gbmin, gb_model=self.gb_model, protein_belly=self.protein_belly)
+            else:
+                print "RUNNING MD SIMULATION WITH EXPLICIT---"
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  protein_belly=self.protein_belly)
+            command=self.get_simulation_commands(prefix, prmtop, inpcrd)
+            output, err=run_linux_process(command)
+            self.check_output(output, err, prefix='md', type='md')
+        return
+        
+
+    def run_cpx_simulation(self):
         # set intput variables and commands
-        prmtop='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
-        inpcrd='%s/%s-complex.solv.crd' % (self.leapdir, self.ligand_name)
+        if self.gbmin==True:
+            prmtop='%s/%s-complex.top' % (self.leapdir, self.ligand_name)
+            inpcrd='%s/%s-complex.crd' % (self.leapdir, self.ligand_name)
+            prefix='gbmin-cpx'
+            if self.md==True:
+                mdprefix='gbmd-cpx'
+        else:
+            prefix='min-cpx'
+            prmtop='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
+            inpcrd='%s/%s-complex.solv.crd' % (self.leapdir, self.ligand_name)
+            if self.md==True:
+                mdprefix='md-cpx'
         if not os.path.exists(prmtop):
             print "MISSING TOPOLOGY FILE: %s" % prmtop 
             sys.exit()
@@ -240,24 +283,10 @@ self.leapdir, self.ligand_name, prefix)
             protein_belly=get_belly_restraints(self.protein_radius, prmtop, inpcrd, ligand_restraints=False)
         else:
             protein_belly=None
-        # write simulation run input files
-        print "--------------------------------------"
-        print "RUNNING MINIMIZATION------------------"
-        prefix='min'
-        amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, protein_belly=protein_belly, maxcycles=self.maxcycles)
-        command=self.get_simulation_commands(prefix, prmtop, inpcrd)
-        output, err=run_linux_process(command)
-        self.check_output(output, err, prefix='md', type='md')
-        self.mincpx='%s/min.rst' % self.gbdir
+        self.protein_belly=protein_belly
+        simulation_guts(self, prefix, prmtop, inpcrd)
         if self.md==True:
-            print "--------------------------------------"
-            print "RUNNING MD SIMULATION--------------"
-            prefix='md'
-            inpcrd=self.mincpx
-            amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix, protein_belly=protein_belly)
-            command=self.get_simulation_commands(prefix, prmtop, inpcrd)
-            output, err=run_linux_process(command)
-            self.check_output(output, err, prefix='md', type='md')
+            simulation_guts(self, mdprefix, prmtop, inpcrd)
         return
 
     def run_ligand_strain(self):
@@ -267,21 +296,28 @@ self.leapdir, self.ligand_name, prefix)
         outconf='%s/%s-cpxmin.mol2' % (self.leapdir, self.ligand_name)
         filename='%s/getligand.ptraj' % self.gbdir
         amber_file_formatter.write_ptraj_strip(filename, self.mincpx, outconf)
-        radii=get_pbbond_radii(self.gb_model)
         frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
-        prefix='lig'
-        command='cpptraj {0}/{1}-complex.solv.top {2}'.format(self.leapdir, self.ligand_name, filename)
+        if self.gbmin==True:
+            prefix='mingb-ligand'
+            command='cpptraj {0}/{1}-complex.top {2}'.format(self.leapdir, self.ligand_name, filename)
+        else:
+            prefix='min-ligand'
+            command='cpptraj {0}/{1}-complex.solv.top {2}'.format(self.leapdir, self.ligand_name, filename)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix, type='ptraj')
-        amber_file_formatter.write_leap(dir=self.leapdir, prefix=prefix, ligand_name=self.ligand_name, radii=radii, frcmodfile=frcmodfile, newligandfile=outconf, complex=False)
+        # build ligand topology
+        amber_file_formatter.write_leap(dir=self.leapdir, prefix=prefix, ligand_name=self.ligand_name, radii=self.radii, frcmodfile=frcmodfile, newligandfile=outconf, complex=False)
+
         command='{0}/bin/tleap -f {1}/{2}-{3}-leaprc'.format(os.environ['AMBERHOME'], self.leapdir, self.ligand_name, prefix)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix, type='leap')
         print "RAN LEAP"
         #minimize ligand in solution, see diff in complex energy and solvated energy
-        prefix='min-ligand'
-        prmtop='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
-        inpcrd='%s/%s-ligand.solv.crd' % (self.leapdir, self.ligand_name)
+        if self.gbmin==True:
+            prefix='min-ligand'
+        else:
+            prmtop='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
+            inpcrd='%s/%s-ligand.solv.crd' % (self.leapdir, self.ligand_name)
         amber_file_formatter.write_simulation_input(self.md, self.gbdir, prefix, maxcycles=self.maxcycles)
         command=self.get_simulation_commands(prefix, prmtop, inpcrd)
 
@@ -412,12 +448,13 @@ self.leapdir, self.ligand_name, prefix)
         ligands=all_values.keys()
         sorted_ligands=sorted(ligands, key=lambda x: all_values[x]['MMGB'])
         ohandle=open('%s/sorted_results.tbl' % dir, 'w')
-        keyorder=['MMGB', 'strain', 'vdW', 'eel_inter', 'eel/EGB', 'EGB', 'E_surf', 'E_lig'] 
+        keyorder=['MMGB-strain', 'MMGB', 'strain', 'vdW', 'eel_inter', 'eel/EGB', 'EGB', 'E_surf', 'E_lig'] 
         entry=''.join(['%s\t' % x for x in keyorder])
         entry=''.join(['name\t', entry, '\n'])
         ohandle.write(entry)
         print entry
         for ligand in sorted_ligands:
+            all_values[ligand]['MMGB-strain']+=all_values[ligand]['MMGB']+all_values[ligand]['strain']
             name='%s\t' % ligand
             entry=''.join(['%0.3f\t' % round(float(all_values[ligand][x]), 3) for x in keyorder])
             entry=''.join([name, entry, '\n'])

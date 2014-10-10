@@ -8,8 +8,9 @@ import glob
 import os
 from os.path import split
 
-def write_leap(dir, prefix, ligand_name, radii, frcmodfile, newligandfile, proteinfile=None, complex=True):
+def write_leap(dir, prefix, ligand_name, radii, frcmodfile, newligandfile, proteinfile=None, complex=True, gbmin=False):
         fhandle=open('{0}/{1}-{2}-leaprc'.format(dir, ligand_name, prefix), 'w')
+        # write headers common to all
         fhandle.write('''\
 source leaprc.ff14SB
 source leaprc.gaff
@@ -18,6 +19,7 @@ loadAmberParams frcmod.ionsjc_tip3p
 loadAmberParams %s
 ''' % frcmodfile)
         if complex==True:
+            # write complex info 
             fhandle.write('''\
 mol=loadmol2 {0}
 prot=loadpdb {1}
@@ -29,12 +31,17 @@ saveAmberParm prot {4}/{3}-protein.top {4}/{3}-protein.crd
 
 
 saveAmberParm complex {4}/{3}-complex.top {4}/{3}-complex.crd
+'''.format((newligandfile,proteinfile, radii, ligand_name, dir))
+            if gbmin==False:
+                fhandle.write('''\
 solvateOct complex TIP3PBOX 14.0
 #addIons complex Na+ 0
-saveAmberParm complex {4}/{3}-complex.solv.top {4}/{3}-complex.solv.crd
-savepdb complex {4}/{3}-complex.solv.amber.pdb
-quit'''.format(newligandfile,proteinfile, radii, ligand_name, dir))
+saveAmberParm complex {1}/{0}-complex.solv.top {1}/{0}-complex.solv.crd
+quit'''.format(ligand_name, dir))
+            else:
+                pass # don't solvate system
         else:
+            # only need to rewrite ligand topo if solvating it
             fhandle.write('''\
 mol=loadmol2 {0}
 solvateOct mol TIP3PBOX 14.0
@@ -71,10 +78,11 @@ def add_restraints(fhandle, ligand_restraints, protein_belly, restraint_k=0.5):
   /\n''')     #to get around annoying issue with newline character  
     fhandle.close()
 
-def write_simulation_input(md, dir, prefix, protein_belly=None, maxcycles=50000, steps=100000):
+def write_simulation_input(md, dir, prefix, gb_model=None, gbmin=False, protein_belly=None, maxcycles=50000, steps=100000):
     filename='%s/%s.in' % (dir, prefix)
-    fhandle=open(filename, 'w')
-    fhandle.write('''\
+    if gbmin==False:
+        fhandle=open(filename, 'w')
+        fhandle.write('''\
 minimization
   &cntrl
   imin = 1, maxcyc = %s, ntmin = 1,
@@ -84,7 +92,23 @@ minimization
   ntwx = 1000, ntwe = 0, ntpr = 1000,
   drms   = 0.6,
   cut = 12.0,''' % maxcycles)
-    add_belly(fhandle, protein_belly)
+        if protein_belly!=None:
+            add_belly(fhandle, protein_belly)
+    if gbmin==True:
+        fhandle=open(filename, 'w')
+        fhandle.write('''\
+minimization
+  &cntrl
+  imin = 1, maxcyc = %s, ntmin = 1,
+  ncyc   = 100, 
+  ntx = 1, ntc = 1, ntf = 1,
+  ntb = 1, ntp = 0,
+  ntwx = 1000, ntwe = 0, ntpr = 1000,
+  igb=%s,
+  drms   = 0.6,
+  cut = 12.0,''' % (maxcycles, gb))
+        if protein_belly!=None:
+            add_belly(fhandle, protein_belly)
     if md==True:
         filename='%s/%s.in' % (dir, prefix)
         fhandle=open(filename, 'w')
@@ -98,7 +122,8 @@ nvt equilibration with Langevin therm, SHAKE Hbonds
   ntwx = 1000, ntwe = 0, ntwr = 1000, ntpr = 1000,
   cut = 10.0, iwrap = 1,
   nscm = 100,''' % steps)
-        add_belly(fhandle, protein_belly)
+        if protein_belly!=None:
+            add_belly(fhandle, protein_belly)
 
 def write_mmgbsa_input(filename, model, start, interval, finish):
     fhandle=open(filename, 'w')
