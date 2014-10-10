@@ -213,8 +213,7 @@ MD, for processing with MMGB scores'''
         frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
         prefix='cpx'
         reload(amber_file_formatter)
-        amber_file_formatter.write_leap(self.leapdir, prefix, self.ligand_name, self.radii, frcmodfile, self.amberligandfile, self.proteinfile, complex=True)
-
+        amber_file_formatter.write_leap(self.leapdir, prefix, self.ligand_name, self.radii, frcmodfile, self.amberligandfile, self.proteinfile, complex=True, gbmin=self.gbmin)
         command='%s/bin/tleap -f %s/%s-%s-leaprc' % (os.environ['AMBERHOME'],
 self.leapdir, self.ligand_name, prefix)
         output, err=run_linux_process(command)
@@ -229,31 +228,41 @@ self.leapdir, self.ligand_name, prefix)
     def simulation_guts(self, prefix, prmtop, inpcrd):
         # write simulation run input files
         # pass in prefix, prmtop, and inpcrd appropriate for gb vs. explicit
+        if 'ligand' in prefix:
+            protein_belly=None
+        else:
+            protein_belly=self.protein_belly
+            # store minimized complex name if not just a ligand run
+            self.mincpx='%s/%s.rst' % (self.gbdir, prefix)
         print "--------------------------------------"
         if self.gbmin==True:
             print "--------------------------------------"
             print "RUNNING MINIMIZATION WITH GB IMPLICIT-"
-            amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, gbmin=self.gbmin, gb_model=self.gb_model, protein_belly=self.protein_belly, maxcycles=self.maxcycles)
+            amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, gbmin=self.gbmin, gb_model=self.gb_model, protein_belly=protein_belly, maxcycles=self.maxcycles)
         else:
             print "RUNNING MINIMIZATION WITH EXPLICIT----"
-            amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, protein_belly=self.protein_belly, maxcycles=self.maxcycles)
+            amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, protein_belly=protein_belly, maxcycles=self.maxcycles)
 
         command=self.get_simulation_commands(prefix, prmtop, inpcrd)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix=prefix, type='md')
-        self.mincpx='%s/%s.rst' % (self.gbdir, prefix)
-        if self.md==True:
+        # if ligand minimization, totally skip MD
+        if 'ligand' in prefix:
+            pass
+        elif self.md==True:
             print "--------------------------------------"
             inpcrd=self.mincpx
             if self.gbmin==True:
                 print "RUNNING MD SIMULATION WITH GB IMPLICIT"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  gbmin=self.gbmin, gb_model=self.gb_model, protein_belly=self.protein_belly)
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  gbmin=self.gbmin, gb_model=self.gb_model, protein_belly=protein_belly)
             else:
                 print "RUNNING MD SIMULATION WITH EXPLICIT---"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  protein_belly=self.protein_belly)
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  protein_belly=protein_belly)
             command=self.get_simulation_commands(prefix, prmtop, inpcrd)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix='md', type='md')
+        else:
+            pass
         return
         
 
@@ -293,46 +302,39 @@ self.leapdir, self.ligand_name, prefix)
         # extract ligand from minimized complex structure with cpptraj
         print "--------------------------------------"
         print "SETTING UP LIGAND STRAIN CALC---------"
-        outconf='%s/%s-cpxmin.mol2' % (self.leapdir, self.ligand_name)
         filename='%s/getligand.ptraj' % self.gbdir
-        amber_file_formatter.write_ptraj_strip(filename, self.mincpx, outconf)
-        frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
         if self.gbmin==True:
-            prefix='mingb-ligand'
+            outconf='%s/%s-ligand-cpxmin.mol2' % (self.leapdir, self.ligand_name)
+            prmtop='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
+            # now strip with ptraj
+            amber_file_formatter.write_ptraj_strip(filename, self.mincpx, outconf)
             command='cpptraj {0}/{1}-complex.top {2}'.format(self.leapdir, self.ligand_name, filename)
+            output, err=run_linux_process(command)
+            self.check_output(output, err, prefix='strip-ligand', type='ptraj')
+            prefix='mingb-ligand'
         else:
-            prefix='min-ligand'
-            command='cpptraj {0}/{1}-complex.solv.top {2}'.format(self.leapdir, self.ligand_name, filename)
-        output, err=run_linux_process(command)
-        self.check_output(output, err, prefix, type='ptraj')
-        # build ligand topology
-        amber_file_formatter.write_leap(dir=self.leapdir, prefix=prefix, ligand_name=self.ligand_name, radii=self.radii, frcmodfile=frcmodfile, newligandfile=outconf, complex=False)
-
-        command='{0}/bin/tleap -f {1}/{2}-{3}-leaprc'.format(os.environ['AMBERHOME'], self.leapdir, self.ligand_name, prefix)
-        output, err=run_linux_process(command)
-        self.check_output(output, err, prefix, type='leap')
-        print "RAN LEAP"
-        #minimize ligand in solution, see diff in complex energy and solvated energy
-        if self.gbmin==True:
-            prefix='min-ligand'
-        else:
+            # rebuild ligand topology only if using explicit solvent
+            # use minimized ligand outconf as input structure
+            outconf='%s/%s-ligand-cpxmin.solv.mol2' % (self.leapdir, self.ligand_name)
+            frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
+            amber_file_formatter.write_leap(dir=self.leapdir, prefix=leap_prefix, ligand_name=self.ligand_name, radii=self.radii, frcmodfile=frcmodfile, newligandfile=outconf, complex=False, gbmin=False)
+            command='{0}/bin/tleap -f {1}/{2}-{3}-leaprc'.format(os.environ['AMBERHOME'], self.leapdir, self.ligand_name, prefix)
+            output, err=run_linux_process(command)
+            self.check_output(output, err, prefix='ligsolv', type='leap')
+            print "RAN LEAP for RESOLVATING LIGAND"
             prmtop='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
-            inpcrd='%s/%s-ligand.solv.crd' % (self.leapdir, self.ligand_name)
-        amber_file_formatter.write_simulation_input(self.md, self.gbdir, prefix, maxcycles=self.maxcycles)
-        command=self.get_simulation_commands(prefix, prmtop, inpcrd)
-
-        output, err=run_linux_process(command)
-        self.check_output(output, err, prefix, type='md')
-        print "MINIMIZED SOLVATED LIGAND"
+            # now strip with ptraj
+            amber_file_formatter.write_ptraj_strip(filename, self.mincpx, outconf)
+            command='cpptraj {0}/{1}-complex.solv.top {2}'.format(self.leapdir, self.ligand_name, filename)
+            output, err=run_linux_process(command)
+            self.check_output(output, err, prefix='strip-ligand', type='ptraj')
+            prefix='min-ligand'
+        # minimize ligand in solution (or with GB solvent)
+        # see diff in complex energy and solvated energy
+        simulation_guts(prefix, prmtop, outconf)
+        print "MINIMIZED LIGAND"
         self.run_mmgbsa(complex=False)
-        states=['ligsolv', 'ligcpx']
-        components=dict()
-        for ligand_state in states:
-            command="grep TOTAL %s/%s-%s-FINAL_MMPBSA.dat  | awk '{print $2}'" % (self.gbdir, self.ligand_name, ligand_state)
-            output=subprocess.check_output(command, shell=True)
-            components[ligand_state]=float(output)
-        value=components['ligcpx']-components['ligsolv']
-        print "ligand strain from potential energy: %0.2f" % (round(value, 2))
+        print "MMGB CALC FINISHED ON LIGAND"
         return
 
     def mmgbsa_guts(self, prefix, start, finish, solvcomplex, complex, traj, interval=1, protein=None, ligand=None):
