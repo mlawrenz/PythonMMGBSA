@@ -89,7 +89,7 @@ minimization
   ntx = 1, ntc = 1, ntf = 1,
   ntb = 1, ntp = 0,
   ntwx = 1000, ntwe = 0, ntpr = 1000,
-  drms   = 0.6,
+  drms   = 0.01,
   cut = 12.0,''' % maxcycles)
         if protein_belly!=None:
             fhandle=add_belly(fhandle, protein_belly)
@@ -104,7 +104,7 @@ minimization
   ntb = 0, ntp = 0,
   ntwx = 1000, ntwe = 0, ntpr = 1000,
   igb=%s,
-  drms   = 0.6,
+  drms   = 0.01,
   cut = 12.0,''' % (maxcycles, gb_model))
         if protein_belly!=None:
             fhandle=add_belly(fhandle, protein_belly)
