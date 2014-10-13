@@ -2,7 +2,6 @@ import PythonMMGBSA
 import optparse
 
 
-
 def main(proteinfile, ligandfile, ligand_charge, gb_model, md, gbmin=False, maxcycles=50000):
 
     mol=PythonMMGBSA.ambermol(proteinfile, ligandfile, gb_model=gb_model, ligand_charge=ligand_charge, gpu=False, protein_radius=0.1, maxcycles=maxcycles, md=md, gbmin=gbmin)

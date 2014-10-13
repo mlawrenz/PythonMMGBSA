@@ -32,7 +32,29 @@ def run_linux_process(command):
     output, err=p.communicate()
     return output, err
 
-def get_belly_restraints(protein_radius, prmtop, inpcrd, ligand_restraints=False):
+def amber_mask_reducer(mask):
+    # hack to workaround ambmask stack underflow if you specify every residue
+    residues_list=mask.split(',')
+    newlist=[]
+    badlist=[n for (n, i) in enumerate(residues_list) if i=='']
+    for i in badlist:
+        residues_list.pop(i)
+    residue_list=numpy.array(sorted([int(i) for i in residues_list]))
+    previous=residue_list[0]
+    start=previous
+    for res in residue_list[1:]:
+        if res==(previous + 1):
+            previous=res
+            pass
+        else:
+            newlist.append('%s-%s' % (start, previous))
+            previous=res
+            start=res
+    newlist.append('%s-%s' % (start, previous))
+    return ','.join(newlist)
+        
+
+def get_restraints(protein_radius, prmtop, inpcrd, ligand_restraints=False):
     #select all atoms in residues that are within protein_radius of the molecule
     # include MOL, with option of restraining it too
     base_top=os.path.basename(prmtop) #workaround ambmask char limit
@@ -41,17 +63,19 @@ def get_belly_restraints(protein_radius, prmtop, inpcrd, ligand_restraints=False
     origdir=os.getcwd()
     os.chdir(wd)
     if ligand_restraints==True:
-        # then set belly to not include MOL (relaxes protein around molecule)
-        command="ambmask -p %s -c %s -find \":MOL < @%s & ! :MOL\" | grep ATOM | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, protein_radius)
+        # then set restraints to include MOL (allows just protein around
+        # molecule to move)
+        command="ambmask -p %s -c %s -find \":MOL > @%s | :MOL\" | grep ATOM | awk '{print $5}' | grep -v \"\*\*\" | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, protein_radius)
     else:
-        # else set belly to include MOL, so it moves
-        command="ambmask -p %s -c %s -find \":MOL < @%s\" | grep ATOM | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, protein_radius)
+        # else do not include MOL, so it moves
+        command="ambmask -p %s -c %s -find \":MOL > @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, protein_radius)
     mask=subprocess.check_output(command, shell=True)
+    mask=amber_mask_reducer(mask)
     command="ambmask -p %s -c %s -find :%s" % (base_top, base_crd, mask)
     output=subprocess.check_output(command, shell=True)
-    #save belly residue atoms
+    #save restrained residue atoms
     name=prmtop.split('.top')[0]
-    numpy.savetxt('%s_bellyresidues.txt' % name, output.split('\n'), fmt='%s')
+    numpy.savetxt('%s_restraintresidues.txt' % name, output.split('\n'), fmt='%s')
     os.chdir(origdir)
     return mask
     
@@ -62,9 +86,8 @@ class ambermol:
 MD, for processing with MMGB scores'''
     def __init__(self, proteinfile=None, ligandfile=None, protein_radius=None, ligand_restraints=None, charge_method=None, ligand_charge=None, gbmin=False, gb_model=5, restraint_k=0.5, md=False, md_steps=100000, maxcycles=50000, gpu=False, verbose=False):
         self.verbose=verbose
-        # with belly, restraint K not used
-        # self.restraint_k=restraint_k
-        # print "RESTRAINT FORCE %s kcal/mol*A2" % restraint_k
+        self.restraint_k=restraint_k
+        print "RESTRAINT FORCE %s kcal/mol*A2" % restraint_k
         self.gb_model=int(gb_model)
         self.radii=get_pbbond_radii(int(gb_model))
         self.gbmin=gbmin
@@ -84,17 +107,13 @@ MD, for processing with MMGB scores'''
         self.leapdir='%s/leap-output' % os.getcwd()
         self.amberligandfile='%s/%s.amber.mol2' % (self.antdir, self.ligand_name)
         self.md=md
+        self.gpu=gpu
         if self.md==True:
             self.gbdir='mmgb%s-md' % self.gb_model
         else:
             self.gbdir='mmgb%s-min' % self.gb_model
         if not os.path.exists(self.gbdir):
             os.mkdir(self.gbdir)
-        if gpu==True:
-            os.system('export CUDA_VISIBLE_DEVICES=0')
-            self.program='pmemd.cuda'
-        else:
-            self.program='mpirun -n 8 pmemd.MPI'
         self.maxcycles=int(maxcycles)
         if not os.environ['AMBERHOME']:
             print "AMBERHOME IS NOT SET"
@@ -128,11 +147,16 @@ MD, for processing with MMGB scores'''
             print "LIGAND CHARGE IS %s" % ligand_charge
             self.ligand_charge=int(ligand_charge)
  
-    def get_simulation_commands(self, prefix, prmtop, inpcrd, restrain=False):
-        if restrain==True:
-            command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -ref {4} -r {1}/{2}.rst'.format(self.program, self.gbdir, prefix, prmtop, inpcrd)
+    def get_simulation_commands(self, prefix, prmtop, inpcrd, restrain=False, nproc=8):
+        if self.gpu==True:
+            os.system('export CUDA_VISIBLE_DEVICES=0')
+            program='pmemd.cuda'
         else:
-            command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -r {1}/{2}.rst'.format(self.program, self.gbdir, prefix, prmtop, inpcrd)
+            program='mpirun -n %s pmemd.MPI' % nproc
+        if restrain==True:
+            command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -ref {4} -r {1}/{2}.rst'.format(program, self.gbdir, prefix, prmtop, inpcrd)
+        else:
+            command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -r {1}/{2}.rst'.format(program, self.gbdir, prefix, prmtop, inpcrd)
         return command
 
     def check_output(self, output, err, prefix, type):
@@ -231,22 +255,29 @@ self.leapdir, self.ligand_name, prefix)
     def simulation_guts(self, prefix, prmtop, inpcrd):
         # write simulation run input files
         # pass in prefix, prmtop, and inpcrd appropriate for gb vs. explicit
+        nproc=8
         if 'ligand' in prefix:
-            protein_belly=None
+            restraint_atoms=None
+            restrain=False
+            if self.gbmin==True:
+                nproc=2
         else:
-            protein_belly=self.protein_belly
+            restraint_atoms=self.restraint_atoms
+            if self.restraint_atoms!=None:
+                restrain=True
+            else:
+                restrain=False
             # store minimized complex name if not just a ligand run
             self.mincpx='%s/%s.rst' % (self.gbdir, prefix)
         print "--------------------------------------"
         if self.gbmin==True:
             print "--------------------------------------"
-            print "RUNNING MINIMIZATION WITH GB IMPLICIT-"
-            amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, gbmin=self.gbmin, gb_model=self.gb_model, protein_belly=protein_belly, maxcycles=self.maxcycles)
+            print "RUNNING MINIMIZATION WITH IMPLICIT----"
+            amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, gbmin=self.gbmin, gb_model=self.gb_model, restraint_k=self.restraint_k, restraint_atoms=restraint_atoms, maxcycles=self.maxcycles)
         else:
             print "RUNNING MINIMIZATION WITH EXPLICIT----"
-            amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, protein_belly=protein_belly, maxcycles=self.maxcycles)
-
-        command=self.get_simulation_commands(prefix, prmtop, inpcrd)
+            amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k,maxcycles=self.maxcycles)
+        command=self.get_simulation_commands(prefix, prmtop, inpcrd, restrain, nproc)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix=prefix, type='md')
         # if ligand minimization, totally skip MD
@@ -256,12 +287,12 @@ self.leapdir, self.ligand_name, prefix)
             print "--------------------------------------"
             inpcrd=self.mincpx
             if self.gbmin==True:
-                print "RUNNING MD SIMULATION WITH GB IMPLICIT"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  gbmin=self.gbmin, gb_model=self.gb_model, protein_belly=protein_belly)
+                print "RUNNING MD SIMULATION WITH IMPLICIT----"
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  gbmin=self.gbmin, gb_model=self.gb_model, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k)
             else:
                 print "RUNNING MD SIMULATION WITH EXPLICIT---"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  protein_belly=protein_belly)
-            command=self.get_simulation_commands(prefix, prmtop, inpcrd)
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  restraint_atoms=restraint_atoms, restraint_k=self.restraint_k)
+            command=self.get_simulation_commands(prefix, prmtop, inpcrd, restrain, nproc)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix='md', type='md')
         else:
@@ -290,12 +321,12 @@ self.leapdir, self.ligand_name, prefix)
             print "MISSING COOR FILE: %s" % inpcrd
             sys.exit()
         if self.ligand_restraints==True and self.protein_radius!=None:
-            protein_belly=get_belly_restraints(self.protein_radius, prmtop, inpcrd, ligand_restraints=True)
+            restraint_atoms=get_restraints(self.protein_radius, prmtop, inpcrd, ligand_restraints=True)
         elif self.ligand_restraints!=True and self.protein_radius!=None:
-            protein_belly=get_belly_restraints(self.protein_radius, prmtop, inpcrd, ligand_restraints=False)
+            restraint_atoms=get_restraints(self.protein_radius, prmtop, inpcrd, ligand_restraints=False)
         else:
-            protein_belly=None
-        self.protein_belly=protein_belly
+            restraint_atoms=None
+        self.restraint_atoms=restraint_atoms
         self.simulation_guts(prefix, prmtop, inpcrd)
         if self.md==True:
             self.simulation_guts(mdprefix, prmtop, inpcrd)
@@ -351,11 +382,17 @@ self.leapdir, self.ligand_name, prefix)
         if protein!=None and ligand!=None:
             print "--------------------------------------"
             print "RUNNING COMPLEX MMGBSA CALC-----------"
-            command='{0}/bin/MMPBSA.py -i {1} -o {2}/{3}-{4}-FINAL_MMPBSA.dat -sp {5} -cp {6} -rp {7} -lp {8} -y {9}'.format(os.environ['AMBERHOME'], inputfile, self.gbdir, self.ligand_name, prefix, solvcomplex, complex, protein, ligand, traj)
+            if self.gbmin==True:
+                command='{0}/bin/MMPBSA.py -i {1} -o {2}/{3}-{4}-FINAL_MMPBSA.dat -cp {5} -rp {6} -lp {7} -y {8}'.format(os.environ['AMBERHOME'], inputfile, self.gbdir, self.ligand_name, prefix, complex, protein, ligand, traj)
+            else:
+                command='{0}/bin/MMPBSA.py -i {1} -o {2}/{3}-{4}-FINAL_MMPBSA.dat -sp {5} -cp {6} -rp {7} -lp {8} -y {9}'.format(os.environ['AMBERHOME'], inputfile, self.gbdir, self.ligand_name, prefix, solvcomplex, complex, protein, ligand, traj)
         else:
             print "--------------------------------------"
             print "RUNNING LIGAND MMGBSA CALC------------"
-            command='{0}/bin/MMPBSA.py -i {1} -o {2}/{3}-{4}-FINAL_MMPBSA.dat -sp {5} -cp {6} -y {7}'.format(os.environ['AMBERHOME'], inputfile, self.gbdir, self.ligand_name, prefix, solvcomplex, complex, traj)
+            if self.gbmin==True:
+                command='{0}/bin/MMPBSA.py -i {1} -o {2}/{3}-{4}-FINAL_MMPBSA.dat -cp {5} -y {6}'.format(os.environ['AMBERHOME'], inputfile, self.gbdir, self.ligand_name, prefix, complex, traj)
+            else:
+                command='{0}/bin/MMPBSA.py -i {1} -o {2}/{3}-{4}-FINAL_MMPBSA.dat -sp {5} -cp {6} -y {7}'.format(os.environ['AMBERHOME'], inputfile, self.gbdir, self.ligand_name, prefix, solvcomplex, complex, traj)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix, type='MMGBSA')
         return
@@ -396,15 +433,13 @@ self.leapdir, self.ligand_name, prefix)
                 solvcomplex=None
                 complex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
                 initial_traj=self.minligandcpx
-                final_traj='%s/gbmin-ligand.rst' % (self.gbdir)
+                final_traj='%s/mingb-ligand.rst' % (self.gbdir)
             else:
                 solvcomplex='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
                 complex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
                 initial_traj='%s/%s-ligand.solv.crd' % (self.leapdir, self.ligand_name)
                 final_traj='%s/min-ligand.rst' % (self.gbdir)
             # first get initial GB energy of ligand in complex
-            import pdb
-            pdb.set_trace()
             prefix='ligcpx'
             self.mmgbsa_guts(prefix, start, finish, solvcomplex, complex, initial_traj, interval=1)
             # next GB energy of ligand minimized in solution

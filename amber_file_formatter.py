@@ -50,34 +50,19 @@ saveAmberParm mol {1}/{2}-ligand.solv.top {1}/{2}-ligand.solv.crd
 savepdb mol {1}/{2}-ligand.solv.amber.pdb'''.format( newligandfile, dir, ligand_name, radii))
         fhandle.close()
 
+# previously used belly dynamics, but igb does not work with belly
 def add_belly(fhandle, protein_belly):
     fhandle.write('''\
   ibelly=1, bellymask = ":%s"''' % protein_belly)
     return fhandle
 
-def add_restraints(fhandle, ligand_restraints, protein_belly, restraint_k=0.5):
-    if ligand_restraints==True and protein_belly!=None: 
-        fhandle.write('''\
+def add_restraints(fhandle, restraint_atoms, restraint_k=0.5):
+    fhandle.write('''\
   ntr = 1, 
-  restraintmask = ":MOL", restraint_wt = {0},
-  ibelly=1, bellymask = ":{1}",
-  /\n'''.format(restraint_k, protein_belly))
-    elif ligand_restraints==True:
-        fhandle.write('''\
-  ntr = 1, 
-  restraintmask = ":MOL", restraint_wt = {0},
-  /\n'''.format(restraint_k))
-    elif protein_belly!=None:
-        fhandle.write('''\
-  ibelly=1, bellymask = ":{0}",
-  /\n'''.format(protein_belly))
-    else:
-        fhandle.write('''\
-  ntr = 0,
-  /\n''')     #to get around annoying issue with newline character  
-    fhandle.close()
+  restraintmask = ":{0}", restraint_wt = {1},'''.format(restraint_atoms, restraint_k))
+    return fhandle
 
-def write_simulation_input(md, dir, prefix, gb_model=None, gbmin=False, protein_belly=None, maxcycles=50000, steps=100000):
+def write_simulation_input(md, dir, prefix, gb_model=None, gbmin=False, restraint_atoms=None, restraint_k=0.5, maxcycles=50000, steps=100000):
     filename='%s/%s.in' % (dir, prefix)
     if gbmin==False:
         fhandle=open(filename, 'w')
@@ -89,10 +74,10 @@ minimization
   ntx = 1, ntc = 1, ntf = 1,
   ntb = 1, ntp = 0,
   ntwx = 1000, ntwe = 0, ntpr = 1000,
-  drms   = 0.01,
+  drms   = 0.1,
   cut = 12.0,''' % maxcycles)
-        if protein_belly!=None:
-            fhandle=add_belly(fhandle, protein_belly)
+        if restraint_atoms!=None:
+            fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
     if gbmin==True:
         fhandle=open(filename, 'w')
         fhandle.write('''\
@@ -104,10 +89,10 @@ minimization
   ntb = 0, ntp = 0,
   ntwx = 1000, ntwe = 0, ntpr = 1000,
   igb=%s,
-  drms   = 0.01,
+  drms   = 0.1,
   cut = 12.0,''' % (maxcycles, gb_model))
-        if protein_belly!=None:
-            fhandle=add_belly(fhandle, protein_belly)
+        if restraint_atoms!=None:
+            fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
     if md==True:
         filename='%s/%s.in' % (dir, prefix)
         fhandle=open(filename, 'w')
@@ -121,8 +106,8 @@ nvt equilibration with Langevin therm, SHAKE Hbonds
   ntwx = 1000, ntwe = 0, ntwr = 1000, ntpr = 1000,
   cut = 10.0, iwrap = 1,
   nscm = 100,''' % steps)
-        if protein_belly!=None:
-            add_belly(fhandle, protein_belly)
+        if restraint_atoms!=None:
+            add_restraints(fhandle, restraint_atoms, restraint_k)
     fhandle.write('/\n')
     fhandle.close()
     return
@@ -153,8 +138,9 @@ def write_ptraj_strip(filename, inconf, outconf):
     files['out']=outconf
     for option in files.keys():
         base=os.path.basename(files[option])
-        types[option]=base.split('.')[-1]
-        if types[option] not in filetypes:
+        suffix=base.split('.')[-1]
+        types[option]=mapper[suffix]
+        if suffix not in filetypes:
             print "FILETYPE NOT SUPPORTED FOR PTRAJ: %s" % types[option]
             sys.exit()
     fhandle=open(filename, 'w')
