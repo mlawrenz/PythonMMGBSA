@@ -64,9 +64,10 @@ def add_restraints(fhandle, restraint_atoms, restraint_k=0.5):
 
 def write_simulation_input(md, dir, prefix, gb_model=None, gbmin=False, restraint_atoms=None, restraint_k=0.5, maxcycles=50000, steps=100000):
     filename='%s/%s.in' % (dir, prefix)
-    if gbmin==False:
-        fhandle=open(filename, 'w')
-        fhandle.write('''\
+    fhandle=open(filename, 'w')
+    if md==False:
+        if gbmin==False:
+            fhandle.write('''\
 minimization
   &cntrl
   imin = 1, maxcyc = %s, ntmin = 1,
@@ -75,12 +76,10 @@ minimization
   ntb = 1, ntp = 0,
   ntwx = 1000, ntwe = 0, ntpr = 1000,
   drms   = 0.1,
-  cut = 12.0,''' % maxcycles)
-        if restraint_atoms!=None:
-            fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
-    if gbmin==True:
-        fhandle=open(filename, 'w')
-        fhandle.write('''\
+  cut = 10.0,''' % maxcycles)
+        if gbmin==True:
+            fhandle=open(filename, 'w')
+            fhandle.write('''\
 minimization
   &cntrl
   imin = 1, maxcyc = %s, ntmin = 1,
@@ -90,29 +89,39 @@ minimization
   ntwx = 1000, ntwe = 0, ntpr = 1000,
   igb=%s,
   drms   = 0.1,
-  cut = 12.0,''' % (maxcycles, gb_model))
-        if restraint_atoms!=None:
-            fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
-    if md==True:
-        filename='%s/%s.in' % (dir, prefix)
-        fhandle=open(filename, 'w')
-        fhandle.write('''\
+  cut = 1000.0,''' % (maxcycles, gb_model))
+    else:
+        if gbmin==True:
+            fhandle.write('''\
 nvt equilibration with Langevin therm, SHAKE Hbonds
   &cntrl
   imin = 0, ntx = 1, irest = 0, nstlim = %s,
   ntt=2, temp0 = 298.15, tempi = 0, ig = -1,
   ntc = 2, ntf = 2, dt = 0.002,
+  ntb = 0, ntp = 0, 
+  igb=%s,
+  ntwx = 1000, ntwe = 0, ntwr = 1000, ntpr = 1000,
+  cut = 1000.0, 
+  nscm = 100,''' % (steps, gb_model))
+        else:
+            fhandle.write('''\
+nvt equilibration with Langevin therm, SHAKE Hbonds
+  &cntrl
+  imin = 0, ntx = 1, irest = 0, nstlim = %s,
+  ntt=3, gamma_ln=1.0, temp0 = 298.15, tempi = 0, ig = -1,
+  ntc = 2, ntf = 2, dt = 0.002,
   ntb = 1, ntp = 0, 
   ntwx = 1000, ntwe = 0, ntwr = 1000, ntpr = 1000,
   cut = 10.0, iwrap = 1,
   nscm = 100,''' % steps)
-        if restraint_atoms!=None:
-            add_restraints(fhandle, restraint_atoms, restraint_k)
+    if restraint_atoms!=None:
+        fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
     fhandle.write('/\n')
     fhandle.close()
     return
 
-def write_mmgbsa_input(filename, model, start, interval, finish):
+def write_mmgbsa_input(filename, model, start, interval, finish=100000000):
+    # script will redice final frame to total frames if really high
     fhandle=open(filename, 'w')
     fhandle.write('''\
 run GB 

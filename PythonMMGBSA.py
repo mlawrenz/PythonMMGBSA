@@ -108,6 +108,7 @@ MD, for processing with MMGB scores'''
         self.amberligandfile='%s/%s.amber.mol2' % (self.antdir, self.ligand_name)
         self.md=md
         self.gpu=gpu
+        self.md_steps=md_steps
         if self.md==True:
             self.gbdir='mmgb%s-md' % self.gb_model
         else:
@@ -147,16 +148,23 @@ MD, for processing with MMGB scores'''
             print "LIGAND CHARGE IS %s" % ligand_charge
             self.ligand_charge=int(ligand_charge)
  
-    def get_simulation_commands(self, prefix, prmtop, inpcrd, restrain=False, nproc=8):
+    def get_simulation_commands(self, prefix, prmtop, inpcrd, restrain=False, nproc=8, mdrun=False):
         if self.gpu==True:
+            print "USING GPU FOR MD"
             os.system('export CUDA_VISIBLE_DEVICES=0')
             program='pmemd.cuda'
         else:
             program='mpirun -n %s pmemd.MPI' % nproc
         if restrain==True:
-            command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -ref {4} -r {1}/{2}.rst'.format(program, self.gbdir, prefix, prmtop, inpcrd)
+            if mdrun==True:
+                command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -ref {4} -r {1}/{2}.rst -x {1}/{2}.mdcrd'.format(program, self.gbdir, prefix, prmtop, inpcrd)
+            else:
+                command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -ref {4} -r {1}/{2}.rst'.format(program, self.gbdir, prefix, prmtop, inpcrd)
         else:
-            command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -r {1}/{2}.rst'.format(program, self.gbdir, prefix, prmtop, inpcrd)
+            if mdrun==True:
+                command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -r {1}/{2}.rst -x {1}/{2}.mdcrd'.format(program, self.gbdir, prefix, prmtop, inpcrd)
+            else:
+                command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -r {1}/{2}.rst'.format(program, self.gbdir, prefix, prmtop, inpcrd)
         return command
 
     def check_output(self, output, err, prefix, type):
@@ -252,7 +260,7 @@ self.leapdir, self.ligand_name, prefix)
         return
 
 
-    def simulation_guts(self, prefix, prmtop, inpcrd):
+    def simulation_guts(self, prefix, prmtop, inpcrd, mdrun=False):
         # write simulation run input files
         # pass in prefix, prmtop, and inpcrd appropriate for gb vs. explicit
         nproc=8
@@ -263,45 +271,40 @@ self.leapdir, self.ligand_name, prefix)
                 nproc=2
         else:
             restraint_atoms=self.restraint_atoms
+            # store minimized complex name if not just a ligand run
+            self.mincpx='%s/%s.rst' % (self.gbdir, prefix)
             if self.restraint_atoms!=None:
                 restrain=True
             else:
                 restrain=False
-            # store minimized complex name if not just a ligand run
-            self.mincpx='%s/%s.rst' % (self.gbdir, prefix)
-        print "--------------------------------------"
-        if self.gbmin==True:
-            print "--------------------------------------"
-            print "RUNNING MINIMIZATION WITH IMPLICIT----"
-            amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, gbmin=self.gbmin, gb_model=self.gb_model, restraint_k=self.restraint_k, restraint_atoms=restraint_atoms, maxcycles=self.maxcycles)
-        else:
-            print "RUNNING MINIMIZATION WITH EXPLICIT----"
-            amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k,maxcycles=self.maxcycles)
-        command=self.get_simulation_commands(prefix, prmtop, inpcrd, restrain, nproc)
-        output, err=run_linux_process(command)
-        self.check_output(output, err, prefix=prefix, type='md')
-        # if ligand minimization, totally skip MD
-        if 'ligand' in prefix:
-            pass
-        elif self.md==True:
-            print "--------------------------------------"
-            inpcrd=self.mincpx
+        if mdrun==False:
             if self.gbmin==True:
-                print "RUNNING MD SIMULATION WITH IMPLICIT----"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  gbmin=self.gbmin, gb_model=self.gb_model, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k)
+                print "--------------------------------------"
+                print "RUNNING MINIMIZATION WITH IMPLICIT----"
+                amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, gbmin=self.gbmin, gb_model=self.gb_model, restraint_k=self.restraint_k, restraint_atoms=restraint_atoms, maxcycles=self.maxcycles)
             else:
-                print "RUNNING MD SIMULATION WITH EXPLICIT---"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  restraint_atoms=restraint_atoms, restraint_k=self.restraint_k)
+                print "RUNNING MINIMIZATION WITH EXPLICIT----"
+                amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k,maxcycles=self.maxcycles)
             command=self.get_simulation_commands(prefix, prmtop, inpcrd, restrain, nproc)
             output, err=run_linux_process(command)
-            self.check_output(output, err, prefix='md', type='md')
+            self.check_output(output, err, prefix=prefix, type='md')
         else:
-            pass
+            print "--------------------------------------"
+            if self.gbmin==True:
+                print "RUNNING MD SIMULATION WITH IMPLICIT----"
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  gbmin=self.gbmin, gb_model=self.gb_model, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.md_steps)
+            else:
+                print "RUNNING MD SIMULATION WITH EXPLICIT---"
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.md_steps)
+            command=self.get_simulation_commands(prefix, prmtop, inpcrd, restrain, nproc, mdrun=True)
+
+            output, err=run_linux_process(command)
+            self.check_output(output, err, prefix='md', type='md')
         return
         
 
     def run_cpx_simulation(self):
-        # set intput variables and commands
+        # set input variables and commands
         if self.gbmin==True:
             prmtop='%s/%s-complex.top' % (self.leapdir, self.ligand_name)
             inpcrd='%s/%s-complex.crd' % (self.leapdir, self.ligand_name)
@@ -329,7 +332,8 @@ self.leapdir, self.ligand_name, prefix)
         self.restraint_atoms=restraint_atoms
         self.simulation_guts(prefix, prmtop, inpcrd)
         if self.md==True:
-            self.simulation_guts(mdprefix, prmtop, inpcrd)
+            inpcrd=self.mincpx
+            self.simulation_guts(mdprefix, prmtop, inpcrd, mdrun=True)
         return
 
     def run_ligand_strain(self):
@@ -405,7 +409,7 @@ self.leapdir, self.ligand_name, prefix)
             start=0
             interval=1
             if self.md==True:
-                finish=-1
+                finish=1000000000 # MMPBSA.py will reduce to total frames
                 if self.gbmin==True:
                     traj='%s/gbmd-cpx.mdcrd' % (self.gbdir)
                     solvcomplex=None
