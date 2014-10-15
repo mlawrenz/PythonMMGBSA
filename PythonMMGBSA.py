@@ -112,9 +112,9 @@ MD, for processing with MMGB scores'''
         self.gpu=gpu
         self.mdsteps=mdsteps
         if self.md==True:
-            self.gbdir='%s-mmgb%s-md' % self.ligand_name, self.gbmodel
+            self.gbdir='%s-mmgb%s-md' % (self.ligand_name, self.gbmodel)
         else:
-            self.gbdir='%s-mmgb%s-min' % self.ligand_name, self.gbmodel
+            self.gbdir='%s-mmgb%s-min' % (self.ligand_name, self.gbmodel)
         if not os.path.exists(self.gbdir):
             os.mkdir(self.gbdir)
         self.maxcycles=int(maxcycles)
