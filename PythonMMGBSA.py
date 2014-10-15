@@ -148,7 +148,7 @@ MD, for processing with MMGB scores'''
             print "LIGAND CHARGE IS %s" % ligand_charge
             self.ligand_charge=int(ligand_charge)
  
-    def get_simulation_commands(self, prefix, prmtop, inpcrd, restrain=False, nproc=8, mdrun=False):
+    def get_simulation_commands(self, prefix, prmtop, inpcrd, restrain=False, nproc=16, mdrun=False):
         if self.gpu==True:
             print "USING GPU FOR MD"
             os.system('export CUDA_VISIBLE_DEVICES=0')
@@ -271,8 +271,6 @@ self.leapdir, self.ligand_name, prefix)
                 nproc=2
         else:
             restraint_atoms=self.restraint_atoms
-            # store minimized complex name if not just a ligand run
-            self.mincpx='%s/%s.rst' % (self.gbdir, prefix)
             if self.restraint_atoms!=None:
                 restrain=True
             else:
@@ -331,6 +329,9 @@ self.leapdir, self.ligand_name, prefix)
             restraint_atoms=None
         self.restraint_atoms=restraint_atoms
         self.simulation_guts(prefix, prmtop, inpcrd)
+        #store minimized complex
+        self.mincpx='%s/%s.rst' % (self.gbdir, prefix)
+        print "self.mincpx is %s" % prefix
         if self.md==True:
             inpcrd=self.mincpx
             self.simulation_guts(mdprefix, prmtop, inpcrd, mdrun=True)
@@ -340,36 +341,41 @@ self.leapdir, self.ligand_name, prefix)
         # extract ligand from minimized complex structure with cpptraj
         print "--------------------------------------"
         print "SETTING UP LIGAND STRAIN CALC---------"
+        base=os.path.basename(self.mincpx)
         filename='%s/getligand.ptraj' % self.gbdir
         if self.gbmin==True:
-            self.minligandcpx='%s/%s-ligand-cpxmin.rst' % (self.leapdir, self.ligand_name)
-            prmtop='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
-            inpcrd=self.minligandcpx
-            # now strip with ptraj to get an restart file for MMPBSA
-            amber_file_formatter.write_ptraj_strip(filename, self.mincpx, self.minligandcpx)
+            minligand='%s/ligandonly.rst' % self.gbdir #rst for sim start
+            # ptraj file iteself in same dir as inconf and outconf
+            # but calling it from one above
+            amber_file_formatter.write_ptraj_strip(filename, self.mincpx,minligand)
+            #extract ligand to get restart file directly for MMPBSA
             command='cpptraj {0}/{1}-complex.top {2}'.format(self.leapdir, self.ligand_name, filename)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix='strip-ligand', type='ptraj')
-            prefix='mingb-ligand'
+            #for running simulation
+            prefix='gbmin-ligand'
+            inpcrd=minligand
+            prmtop='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
         else:
             # rebuild ligand topology only if using explicit solvent
-            # use minimized ligand outconf mol2 as input structure
-            outconf='%s/%s-ligand-cpxmin.solv.mol2' % (self.leapdir, self.ligand_name)
-            # now strip with ptraj
-            amber_file_formatter.write_ptraj_strip(filename, self.mincpx, outconf)
+            # has to load in a mol2
+            minligand='%s/ligandonly.mol2' % self.gbdir
+            amber_file_formatter.write_ptraj_strip(filename, self.mincpx, minligand)
             command='cpptraj {0}/{1}-complex.solv.top {2}'.format(self.leapdir, self.ligand_name, filename)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix='strip-ligand', type='ptraj')
-            frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
             # rebuild ligand topology 
+            frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
             leap_prefix='ligresolv'
-            amber_file_formatter.write_leap(dir=self.leapdir, prefix=leap_prefix, ligand_name=self.ligand_name, radii=self.radii, frcmodfile=frcmodfile, newligandfile=outconf, complex=False, gbmin=False)
+            amber_file_formatter.write_leap(dir=self.leapdir, prefix=leap_prefix, ligand_name=self.ligand_name, radii=self.radii, frcmodfile=frcmodfile, newligandfile=minligand, complex=False, gbmin=False)
             command='{0}/bin/tleap -f {1}/{2}-{3}-leaprc'.format(os.environ['AMBERHOME'], self.leapdir, self.ligand_name, leap_prefix)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix=leap_prefix, type='leap')
             print "RAN LEAP for RESOLVATING LIGAND"
+            os.system('mv %s/%s-ligand.solv.crd %s/ligandonly.crd' % (self.leapdir, self.ligand_name, self.gbdir))
+            #for running simulation
             prefix='min-ligand'
-            inpcrd='%s/%s-ligand.solv.crd' % (self.leapdir, self.ligand_name)
+            inpcrd='%s/ligandonly.crd' % self.gbdir
             prmtop='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
         # minimize ligand in solution (or with GB solvent)
         # see diff in complex energy and solvated energy
@@ -436,12 +442,12 @@ self.leapdir, self.ligand_name, prefix)
             if self.gbmin==True:
                 solvcomplex=None
                 complex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
-                initial_traj=self.minligandcpx
-                final_traj='%s/mingb-ligand.rst' % (self.gbdir)
+                initial_traj='%s/ligandonly.rst' % self.gbdir
+                final_traj='%s/gbmin-ligand.rst' % (self.gbdir)
             else:
                 solvcomplex='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
                 complex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
-                initial_traj='%s/%s-ligand.solv.crd' % (self.leapdir, self.ligand_name)
+                initial_traj='%s/ligandonly.crd' % self.gbdir
                 final_traj='%s/min-ligand.rst' % (self.gbdir)
             # first get initial GB energy of ligand in complex
             prefix='ligcpx'
