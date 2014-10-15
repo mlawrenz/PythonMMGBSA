@@ -8,7 +8,7 @@ import glob
 import os
 from os.path import split
 
-def write_leap(dir, prefix, ligand_name, radii, frcmodfile, newligandfile, proteinfile=None, complex=True, gbmin=False):
+def write_leap(dir, prefix, ligand_name, radii, frcmodfile, newligfile, protfile=None, complex=True, gbmin=False):
         fhandle=open('{0}/{1}-{2}-leaprc'.format(dir, ligand_name, prefix), 'w')
         # write headers common to all
         fhandle.write('''\
@@ -31,7 +31,7 @@ saveAmberParm prot {4}/{3}-protein.top {4}/{3}-protein.crd
 
 
 saveAmberParm complex {4}/{3}-complex.top {4}/{3}-complex.crd
-'''.format(newligandfile,proteinfile, radii, ligand_name, dir))
+'''.format(newligfile,protfile, radii, ligand_name, dir))
             if gbmin==False:
                 fhandle.write('''\
 solvateOct complex TIP3PBOX 14.0
@@ -47,7 +47,7 @@ mol=loadmol2 {0}
 solvateOct mol TIP3PBOX 14.0
 set default PBradii {3}
 saveAmberParm mol {1}/{2}-ligand.solv.top {1}/{2}-ligand.solv.crd
-savepdb mol {1}/{2}-ligand.solv.amber.pdb'''.format( newligandfile, dir, ligand_name, radii))
+savepdb mol {1}/{2}-ligand.solv.amber.pdb'''.format( newligfile, dir, ligand_name, radii))
         fhandle.close()
 
 # previously used belly dynamics, but igb does not work with belly
@@ -62,7 +62,7 @@ def add_restraints(fhandle, restraint_atoms, restraint_k=0.5):
   restraintmask = ":{0}", restraint_wt = {1},'''.format(restraint_atoms, restraint_k))
     return fhandle
 
-def write_simulation_input(md, dir, prefix, gb_model=None, gbmin=False, restraint_atoms=None, restraint_k=0.5, maxcycles=50000, steps=100000):
+def write_simulation_input(md, dir, prefix, gbmodel=None, gbmin=False, restraint_atoms=None, restraint_k=0.5, maxcycles=50000, drms=0.1, steps=100000):
     filename='%s/%s.in' % (dir, prefix)
     fhandle=open(filename, 'w')
     if md==False:
@@ -75,8 +75,8 @@ minimization
   ntx = 1, ntc = 1, ntf = 1,
   ntb = 1, ntp = 0,
   ntwx = 1000, ntwe = 0, ntpr = 1000,
-  drms   = 0.1,
-  cut = 10.0,''' % maxcycles)
+  drms   = %s,
+  cut = 10.0,''' % (maxcycles, drms))
         if gbmin==True:
             fhandle=open(filename, 'w')
             fhandle.write('''\
@@ -88,8 +88,8 @@ minimization
   ntb = 0, ntp = 0,
   ntwx = 1000, ntwe = 0, ntpr = 1000,
   igb=%s,
-  drms   = 0.1,
-  cut = 1000.0,''' % (maxcycles, gb_model))
+  drms   = %s,
+  cut = 1000.0,''' % (maxcycles, gbmodel, drms))
     else:
         if gbmin==True:
             fhandle.write('''\
@@ -102,7 +102,7 @@ nvt equilibration with Langevin therm, SHAKE Hbonds
   igb=%s,
   ntwx = 1000, ntwe = 0, ntwr = 1000, ntpr = 1000,
   cut = 1000.0, 
-  nscm = 100,''' % (steps, gb_model))
+  nscm = 100,''' % (steps, gbmodel))
         else:
             fhandle.write('''\
 nvt equilibration with Langevin therm, SHAKE Hbonds

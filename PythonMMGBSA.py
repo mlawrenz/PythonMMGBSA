@@ -54,21 +54,21 @@ def amber_mask_reducer(mask):
     return ','.join(newlist)
         
 
-def get_restraints(protein_radius, prmtop, inpcrd, ligand_restraints=False):
-    #select all atoms in residues that are within protein_radius of the molecule
+def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
+    #select all atoms in residues that are within prot_radius of the molecule
     # include MOL, with option of restraining it too
     base_top=os.path.basename(prmtop) #workaround ambmask char limit
     base_crd=os.path.basename(inpcrd)
     wd=os.path.dirname(prmtop)
     origdir=os.getcwd()
     os.chdir(wd)
-    if ligand_restraints==True:
+    if ligrestraint==True:
         # then set restraints to include MOL (allows just protein around
         # molecule to move)
-        command="ambmask -p %s -c %s -find \":MOL > @%s | :MOL\" | grep ATOM | awk '{print $5}' | grep -v \"\*\*\" | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, protein_radius)
+        command="ambmask -p %s -c %s -find \":MOL > @%s | :MOL\" | grep ATOM | awk '{print $5}' | grep -v \"\*\*\" | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
     else:
         # else do not include MOL, so it moves
-        command="ambmask -p %s -c %s -find \":MOL > @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, protein_radius)
+        command="ambmask -p %s -c %s -find \":MOL > @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
     mask=subprocess.check_output(command, shell=True)
     mask=amber_mask_reducer(mask)
     command="ambmask -p %s -c %s -find :%s" % (base_top, base_crd, mask)
@@ -84,69 +84,72 @@ def get_restraints(protein_radius, prmtop, inpcrd, ligand_restraints=False):
 class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
-    def __init__(self, proteinfile=None, ligandfile=None, protein_radius=None, ligand_restraints=None, charge_method=None, ligand_charge=None, gbmin=False, gb_model=5, restraint_k=0.5, md=False, md_steps=100000, maxcycles=50000, gpu=False, verbose=False):
+    def __init__(self, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, gpu=False, verbose=False):
+
+
         self.verbose=verbose
         self.restraint_k=restraint_k
         print "RESTRAINT FORCE %s kcal/mol*A2" % restraint_k
-        self.gb_model=int(gb_model)
-        self.radii=get_pbbond_radii(int(gb_model))
+        self.gbmodel=int(gbmodel)
+        self.radii=get_pbbond_radii(int(gbmodel))
         self.gbmin=gbmin
         print "--------------------------------------"
         print "SYSTEM SET UP-------------------------"
-        print "USING MMGB=%s MODEL" % self.gb_model
-        self.proteinfile='%s/%s' % (os.getcwd(), proteinfile)
-        self.ligandfile='%s/%s' % (os.getcwd(), ligandfile)
-        command="more %s | awk '{if (NF==9) {print $8}}' | head -1" % self.ligandfile
+        print "USING MMGB=%s MODEL" % self.gbmodel
+        self.protfile='%s/%s' % (os.getcwd(), protfile)
+        self.ligfile='%s/%s' % (os.getcwd(), ligfile)
+        command="more %s | awk '{if (NF==9) {print $8}}' | head -1" % self.ligfile
         output=subprocess.check_output(command, shell=True)
         output=output.rstrip('\n')
         if output!='MOL':
             print "NEED TO NAME LIGAND \"MOL\""
             sys.exit()
-        self.ligand_name=os.path.basename(ligandfile).split('.mol2')[0]
+        self.ligand_name=os.path.basename(ligfile).split('.mol2')[0]
         self.antdir='%s/antechamber-output' % os.getcwd()
         self.leapdir='%s/leap-output' % os.getcwd()
-        self.amberligandfile='%s/%s.amber.mol2' % (self.antdir, self.ligand_name)
+        self.amberligfile='%s/%s.amber.mol2' % (self.antdir, self.ligand_name)
         self.md=md
         self.gpu=gpu
-        self.md_steps=md_steps
+        self.mdsteps=mdsteps
         if self.md==True:
-            self.gbdir='mmgb%s-md' % self.gb_model
+            self.gbdir='mmgb%s-md' % self.gbmodel
         else:
-            self.gbdir='mmgb%s-min' % self.gb_model
+            self.gbdir='mmgb%s-min' % self.gbmodel
         if not os.path.exists(self.gbdir):
             os.mkdir(self.gbdir)
         self.maxcycles=int(maxcycles)
+        self.drms=float(drms)
         if not os.environ['AMBERHOME']:
             print "AMBERHOME IS NOT SET"
             sys.exit()
-        if not protein_radius:
+        if not prot_radius:
             print "NO PROTEIN RESTRAINTS USED"
-            self.protein_radius=None
+            self.prot_radius=None
         else:
-            self.protein_radius=protein_radius
-            print "PROTEIN RESTRAINED AT RADIUS %s AROUND LIGAND" % self.protein_radius
-        if not ligand_restraints:
-            self.ligand_restraints=None
+            self.prot_radius=prot_radius
+            print "PROTEIN RESTRAINED AT RADIUS %s AROUND LIGAND" % self.prot_radius
+        if not ligrestraint:
+            self.ligrestraint=None
             print "NO LIGAND RESTRAINTS USED"
         else:
-            self.ligand_restraints=True
+            self.ligrestraint=True
             print "RESTRAINING LIGAND ATOMS"
         if not charge_method:
             print "USING AM1-BCC CHARGE METHOD"
             self.charge_method='bcc'
         else: 
             self.charge_method=charge_method
-        if not ligand_charge:
+        if not ligcharge:
             # to calc change with umt:
             # cat conf_0001.mol2 | umt .mol2 .mol2 > tmp.mol2
             # command="grep \"\<0\>\" tmp.mol2  | sed 1d | awk '{sum+=} END {print sum}'"
             #output=subprocess.self.check_output(command, shell=True)
             # rm tmp.mol2
             print "ASSUMING LIGAND CHARGE IS ZERO"
-            self.ligand_charge=0
+            self.ligcharge=0
         else:
-            print "LIGAND CHARGE IS %s" % ligand_charge
-            self.ligand_charge=int(ligand_charge)
+            print "LIGAND CHARGE IS %s" % ligcharge
+            self.ligcharge=int(ligcharge)
  
     def get_simulation_commands(self, prefix, prmtop, inpcrd, restrain=False, nproc=16, mdrun=False):
         if self.gpu==True:
@@ -210,24 +213,24 @@ MD, for processing with MMGB scores'''
         if not os.path.exists(self.antdir):
             os.mkdir(self.antdir)
         frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
-        if os.path.exists(self.amberligandfile) and os.path.exists(frcmodfile):
+        if os.path.exists(self.amberligfile) and os.path.exists(frcmodfile):
             print "ALREADY HAVE CHARGED MOL2 AND FRCMOD FILES FOR %s" % self.ligand_name
         else:
             print "--------------------------------------"
             print "RUNNING ANTECHAMBER ON LIGAND---------"
             #make new mol2 file for ligand, including charges
-            command='%s/bin/antechamber -i %s -fi mol2 -o %s -fo mol2 -c %s -nc %s' % (os.environ['AMBERHOME'], self.ligandfile,  self.amberligandfile, self.charge_method,self.ligand_charge)
+            command='%s/bin/antechamber -i %s -fi mol2 -o %s -fo mol2 -c %s -nc %s' % (os.environ['AMBERHOME'], self.ligfile,  self.amberligfile, self.charge_method,self.ligcharge)
             output, err=run_linux_process(command)
             prefix='ante'
             self.check_output(output, err, prefix, type='ante')
             #make frcmod file to catch missing parameters
             prefix='parmchk'
-            command='%s/bin/parmchk -i %s -o %s -f mol2' % (os.environ['AMBERHOME'], self.amberligandfile, frcmodfile)
+            command='%s/bin/parmchk -i %s -o %s -f mol2' % (os.environ['AMBERHOME'], self.amberligfile, frcmodfile)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix, type='ante')
         
             #make amber formattable mol2 file
-            #command='%s/bin/antechamber -i %s -fi mol2 -o %s/%s.amber.mol2 -fo mol2 -an y' % (os.environ['AMBERHOME'], self.ligandfile, self.antdir, self.ligand_name)
+            #command='%s/bin/antechamber -i %s -fi mol2 -o %s/%s.amber.mol2 -fo mol2 -an y' % (os.environ['AMBERHOME'], self.ligfile, self.antdir, self.ligand_name)
             #output, err=run_linux_process(command)
             #prefix='mol2convert'
             #self.check_output(output, err, prefix, type='ante')
@@ -246,7 +249,7 @@ MD, for processing with MMGB scores'''
         frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
         prefix='cpx'
         reload(amber_file_formatter)
-        amber_file_formatter.write_leap(self.leapdir, prefix, self.ligand_name, self.radii, frcmodfile, self.amberligandfile, self.proteinfile, complex=True, gbmin=self.gbmin)
+        amber_file_formatter.write_leap(self.leapdir, prefix, self.ligand_name, self.radii, frcmodfile, self.amberligfile, self.protfile, complex=True, gbmin=self.gbmin)
         command='%s/bin/tleap -f %s/%s-%s-leaprc' % (os.environ['AMBERHOME'],
 self.leapdir, self.ligand_name, prefix)
         output, err=run_linux_process(command)
@@ -279,10 +282,10 @@ self.leapdir, self.ligand_name, prefix)
             if self.gbmin==True:
                 print "--------------------------------------"
                 print "RUNNING MINIMIZATION WITH IMPLICIT----"
-                amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, gbmin=self.gbmin, gb_model=self.gb_model, restraint_k=self.restraint_k, restraint_atoms=restraint_atoms, maxcycles=self.maxcycles)
+                amber_file_formatter.write_simulation_input(md=False,dir=self.gbdir, prefix=prefix, gbmin=self.gbmin, gbmodel=self.gbmodel, restraint_k=self.restraint_k, restraint_atoms=restraint_atoms, maxcycles=self.maxcycles, drms=self.drms)
             else:
                 print "RUNNING MINIMIZATION WITH EXPLICIT----"
-                amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k,maxcycles=self.maxcycles)
+                amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k,maxcycles=self.maxcycles, drms=self.drms)
             command=self.get_simulation_commands(prefix, prmtop, inpcrd, restrain, nproc)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix=prefix, type='md')
@@ -290,10 +293,10 @@ self.leapdir, self.ligand_name, prefix)
             print "--------------------------------------"
             if self.gbmin==True:
                 print "RUNNING MD SIMULATION WITH IMPLICIT----"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  gbmin=self.gbmin, gb_model=self.gb_model, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.md_steps)
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  gbmin=self.gbmin, gbmodel=self.gbmodel, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps)
             else:
                 print "RUNNING MD SIMULATION WITH EXPLICIT---"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.md_steps)
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps)
             command=self.get_simulation_commands(prefix, prmtop, inpcrd, restrain, nproc, mdrun=True)
 
             output, err=run_linux_process(command)
@@ -321,10 +324,10 @@ self.leapdir, self.ligand_name, prefix)
         if not os.path.exists(inpcrd):
             print "MISSING COOR FILE: %s" % inpcrd
             sys.exit()
-        if self.ligand_restraints==True and self.protein_radius!=None:
-            restraint_atoms=get_restraints(self.protein_radius, prmtop, inpcrd, ligand_restraints=True)
-        elif self.ligand_restraints!=True and self.protein_radius!=None:
-            restraint_atoms=get_restraints(self.protein_radius, prmtop, inpcrd, ligand_restraints=False)
+        if self.ligrestraint==True and self.prot_radius!=None:
+            restraint_atoms=get_restraints(self.prot_radius, prmtop, inpcrd, ligrestraint=True)
+        elif self.ligrestraint!=True and self.prot_radius!=None:
+            restraint_atoms=get_restraints(self.prot_radius, prmtop, inpcrd, ligrestraint=False)
         else:
             restraint_atoms=None
         self.restraint_atoms=restraint_atoms
@@ -367,7 +370,7 @@ self.leapdir, self.ligand_name, prefix)
             # rebuild ligand topology 
             frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
             leap_prefix='ligresolv'
-            amber_file_formatter.write_leap(dir=self.leapdir, prefix=leap_prefix, ligand_name=self.ligand_name, radii=self.radii, frcmodfile=frcmodfile, newligandfile=minligand, complex=False, gbmin=False)
+            amber_file_formatter.write_leap(dir=self.leapdir, prefix=leap_prefix, ligand_name=self.ligand_name, radii=self.radii, frcmodfile=frcmodfile, newligfile=minligand, complex=False, gbmin=False)
             command='{0}/bin/tleap -f {1}/{2}-{3}-leaprc'.format(os.environ['AMBERHOME'], self.leapdir, self.ligand_name, leap_prefix)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix=leap_prefix, type='leap')
@@ -387,7 +390,7 @@ self.leapdir, self.ligand_name, prefix)
 
     def mmgbsa_guts(self, prefix, start, finish, solvcomplex, complex, traj, interval=1, protein=None, ligand=None):
         inputfile='%s/%s-mmgb.in' % (self.gbdir, prefix)
-        amber_file_formatter.write_mmgbsa_input(inputfile, self.gb_model, start, interval, finish)
+        amber_file_formatter.write_mmgbsa_input(inputfile, self.gbmodel, start, interval, finish)
         # use MMGBSA.py in Amber14 to run MMGB free energy difference calcs for complex
         if protein!=None and ligand!=None:
             print "--------------------------------------"
@@ -527,7 +530,7 @@ self.leapdir, self.ligand_name, prefix)
         keyorder=['MMGB+str', 'MMGB', 'strain', 'vdW', 'eel_inter', 'eel/EGB', 'EGB' , 'E_surf',  'E_lig'] 
         for ligand in sorted_ligands:
             all_values[ligand]['MMGB+str']=all_values[ligand]['MMGB']+all_values[ligand]['strain']
-            name='%s\t' % ligand
+            name='%s\t\t' % ligand
             entry=''.join(['%0.2f\t' % round(float(all_values[ligand][x]), 2) for x in keyorder])
             entry=''.join([name, entry, '\n'])
             ohandle.write(entry)
