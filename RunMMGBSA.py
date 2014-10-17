@@ -11,6 +11,7 @@ parser.add_argument('-time', action="store_true", dest="time", help="using -time
 
 #always need these user inputs
 group = parser.add_argument_group('Necessary user input',)
+group.add_argument('-jname','--jobname',dest='jobname',  help='jobname: organize your files by labeling dirs for leap and mgbsa output with this name.')
 group.add_argument('-prot','--protfile',dest='protfile',  help='protein PDB file')
 group.add_argument('-mol2','--ligfile',dest='ligfile',  help='ligand MOL2 file, named MOL')
 group.add_argument('-netc','--netcharge',dest='ligcharge',  help='total net charge on ligand')
@@ -30,18 +31,18 @@ group.add_argument('-mdsteps','--mdsteps',dest='mdsteps',  help='MD simulation s
 
 
 def main(args):
-    mol=PythonMMGBSA.ambermol(protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps)
-    #mol.run_antechamber()
-    #mol.run_leap()
-    #mol.run_cpx_simulation() 
-    #mol.run_ligand_strain()
-    #mol.run_mmgbsa(complex=True)
+    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps, gpu=args.gpu)
+    mol.run_antechamber()
+    mol.run_leap()
+    mol.run_cpx_simulation() 
+    mol.run_ligand_strain()
+    mol.run_mmgbsa(complex=True)
     mol.print_table()
 
 
 def time_main(args):
     print "timer turned on!"
-    mol=PythonMMGBSA.ambermol(protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps)
+    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps, gpu=args.gpu)
     start=time.time()
     mol.run_antechamber()
     end=time.time()

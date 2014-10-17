@@ -55,7 +55,7 @@ def amber_mask_reducer(mask):
         
 
 def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
-    #select all atoms in residues that are within prot_radius of the molecule
+    # select all atoms in residues that are within prot_radius of the molecule
     # include MOL, with option of restraining it too
     base_top=os.path.basename(prmtop) #workaround ambmask char limit
     base_crd=os.path.basename(inpcrd)
@@ -84,9 +84,8 @@ def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
 class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
-    def __init__(self, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, gpu=False, verbose=False):
-
-
+    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, gpu=False, verbose=False):
+        self.jobname=jobname
         self.verbose=verbose
         self.restraint_k=restraint_k
         print "RESTRAINT FORCE %s kcal/mol*A2" % restraint_k
@@ -105,16 +104,16 @@ MD, for processing with MMGB scores'''
             print "NEED TO NAME LIGAND \"MOL\""
             sys.exit()
         self.ligand_name=os.path.basename(ligfile).split('.mol2')[0]
-        self.antdir='%s/antechamber-output' % os.getcwd()
-        self.leapdir='%s/leap-output' % os.getcwd()
+        self.antdir='%s/%s-antechamber-output' % (os.getcwd(), self.jobname)
+        self.leapdir='%s/%s-leap-output' % (os.getcwd(), self.jobname)
         self.amberligfile='%s/%s.amber.mol2' % (self.antdir, self.ligand_name)
         self.md=md
         self.gpu=gpu
         self.mdsteps=mdsteps
         if self.md==True:
-            self.gbdir='%s-mmgb%s-md' % (self.ligand_name, self.gbmodel)
+            self.gbdir='%s-mmgb%s-md' % (self.jobname, self.gbmodel)
         else:
-            self.gbdir='%s-mmgb%s-min' % (self.ligand_name, self.gbmodel)
+            self.gbdir='%s-mmgb%s-min' % (self.jobname, self.gbmodel)
         if not os.path.exists(self.gbdir):
             os.mkdir(self.gbdir)
         self.maxcycles=int(maxcycles)
@@ -140,13 +139,8 @@ MD, for processing with MMGB scores'''
         else: 
             self.charge_method=charge_method
         if not ligcharge:
-            # to calc change with umt:
-            # cat conf_0001.mol2 | umt .mol2 .mol2 > tmp.mol2
-            # command="grep \"\<0\>\" tmp.mol2  | sed 1d | awk '{sum+=} END {print sum}'"
-            #output=subprocess.self.check_output(command, shell=True)
-            # rm tmp.mol2
-            print "ASSUMING LIGAND CHARGE IS ZERO"
-            self.ligcharge=0
+            print "CONFIRM LIGAND CHARGE"
+            sys.exit()
         else:
             print "LIGAND CHARGE IS %s" % ligcharge
             self.ligcharge=int(ligcharge)
@@ -183,6 +177,9 @@ MD, for processing with MMGB scores'''
             if type=='leap' and 'tl_getline()' in err.split('\n')[1]:
                 if len(err.split('\n')) < 4:
                     errors=False
+            else:
+                logfile='%s/%s-%s-%s.err' % (dir, self.ligand_name, prefix, type)
+                numpy.savetxt(logfile, output.split('\n'), fmt='%s')
         if 'Abort' in err or 'Abort' in output:
             errors=True
         if self.verbose==True:
@@ -212,6 +209,9 @@ MD, for processing with MMGB scores'''
         #check to see if file exists
         if not os.path.exists(self.antdir):
             os.mkdir(self.antdir)
+        origdir=os.getcwd()
+        os.chdir(self.antdir)
+        # run antechamber in antdir to avoid overwritten files by parallel jobs
         frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
         if os.path.exists(self.amberligfile) and os.path.exists(frcmodfile):
             print "ALREADY HAVE CHARGED MOL2 AND FRCMOD FILES FOR %s" % self.ligand_name
@@ -229,37 +229,27 @@ MD, for processing with MMGB scores'''
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix, type='ante')
         
-            #make amber formattable mol2 file
-            #command='%s/bin/antechamber -i %s -fi mol2 -o %s/%s.amber.mol2 -fo mol2 -an y' % (os.environ['AMBERHOME'], self.ligfile, self.antdir, self.ligand_name)
-            #output, err=run_linux_process(command)
-            #prefix='mol2convert'
-            #self.check_output(output, err, prefix, type='ante')
-        
-            # clean up
-            #os.system('cd %s' % self.antdir)
             os.system('rm ANTECHAMBER* ATOMTYPE.INF NEWPDB.PDB PREP.INF  rm sqm.*')
+        os.chdir(origdir)
         return
 
 
     def run_leap(self):
         if not os.path.exists(self.leapdir):
             os.mkdir(self.leapdir)
+        # run leap in antdir to avoid overwritten files by parallel jobs
+        origdir=os.getcwd()
+        os.chdir(self.leapdir)
         print "--------------------------------------"
         print "RUNNING LEAP FOR COMPLEX--------------"
         frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
         prefix='cpx'
-        reload(amber_file_formatter)
         amber_file_formatter.write_leap(self.leapdir, prefix, self.ligand_name, self.radii, frcmodfile, self.amberligfile, self.protfile, complex=True, gbmin=self.gbmin)
         command='%s/bin/tleap -f %s/%s-%s-leaprc' % (os.environ['AMBERHOME'],
 self.leapdir, self.ligand_name, prefix)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix, type='leap')
-        # use ante-MMPBSA to make sure topology pieces are all correct
-        #print "GETTING SEPARATE TOPOLOGIES"
-        #if self.gbmin==True:
-        #    command='ante-MMPBSA.py -p {0}/{1}-complex.top -c {0}/{1}-complex.crd -s :WAT -r {0}/{1}-protein.top -l {0}/{1}%s-ligand.top -n :MOL --radii={2}'.format(self.leapdir, self.ligand_name, self.radii)
-        #else:
-        #command='ante-MMPBSA.py -p {0}/{1}-complex.solv.top -c {0}/{1}-complex.solv.crd -s :WAT -r {0}/{1}-protein.top -l {0}/{1}%s-ligand.top -n :MOL --radii={2}'.format(self.leapdir, self.ligand_name, self.radii)
+        os.chdir(origdir)
         return
 
 
@@ -389,30 +379,33 @@ self.leapdir, self.ligand_name, prefix)
         return
 
     def mmgbsa_guts(self, prefix, start, finish, solvcomplex, complex, traj, interval=1, protein=None, ligand=None):
-        inputfile='%s/%s-mmgb.in' % (self.gbdir, prefix)
+        # should be in gbdir here
+        inputfile='%s-mmgb.in' % prefix
         amber_file_formatter.write_mmgbsa_input(inputfile, self.gbmodel, start, interval, finish)
         # use MMGBSA.py in Amber14 to run MMGB free energy difference calcs for complex
         if protein!=None and ligand!=None:
             print "--------------------------------------"
             print "RUNNING COMPLEX MMGBSA CALC-----------"
             if self.gbmin==True:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}/{3}-{4}-FINAL_MMPBSA.dat -cp {5} -rp {6} -lp {7} -y {8}'.format(os.environ['AMBERHOME'], inputfile, self.gbdir, self.ligand_name, prefix, complex, protein, ligand, traj)
+                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -rp {5} -lp {6} -y {7}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, complex, protein, ligand, traj)
             else:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}/{3}-{4}-FINAL_MMPBSA.dat -sp {5} -cp {6} -rp {7} -lp {8} -y {9}'.format(os.environ['AMBERHOME'], inputfile, self.gbdir, self.ligand_name, prefix, solvcomplex, complex, protein, ligand, traj)
+                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} -cp {5} -rp {6} -lp {7} -y {8}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, solvcomplex, complex, protein, ligand, traj)
         else:
             print "--------------------------------------"
             print "RUNNING LIGAND MMGBSA CALC------------"
             if self.gbmin==True:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}/{3}-{4}-FINAL_MMPBSA.dat -cp {5} -y {6}'.format(os.environ['AMBERHOME'], inputfile, self.gbdir, self.ligand_name, prefix, complex, traj)
+                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -y {5}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, complex, traj)
             else:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}/{3}-{4}-FINAL_MMPBSA.dat -sp {5} -cp {6} -y {7}'.format(os.environ['AMBERHOME'], inputfile, self.gbdir, self.ligand_name, prefix, solvcomplex, complex, traj)
+                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} -cp {5} -y {6}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, solvcomplex, complex, traj)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix, type='MMGBSA')
         return
 
     def run_mmgbsa(self, complex=True):
-        #setup files for MMGBSA.py in Amber14 to run MMGB free energy difference calcs for complex
-        inputfile='%s/mmgb.in' % self.gbdir
+        # setup files for MMGBSA.py in Amber14 to run MMGB free energy difference calcs for complex
+        origdir=os.getcwd()
+        # make sure do not mixup extraneous files with parallel jobs
+        os.chdir(self.gbdir)
         if complex==True:
             prefix='cpx'
             start=0
@@ -420,18 +413,18 @@ self.leapdir, self.ligand_name, prefix)
             if self.md==True:
                 finish=1000000000 # MMPBSA.py will reduce to total frames
                 if self.gbmin==True:
-                    traj='%s/gbmd-cpx.mdcrd' % (self.gbdir)
+                    traj='gbmd-cpx.mdcrd' 
                     solvcomplex=None
                 else:
-                    traj='%s/md-cpx.mdcrd' % (self.gbdir)
+                    traj='md-cpx.mdcrd' 
                     solvcomplex='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
             else:
                 finish=1
                 if self.gbmin==True:
-                    traj='%s/gbmin-cpx.rst' % (self.gbdir)
+                    traj='gbmin-cpx.rst' 
                     solvcomplex=None
                 else:
-                    traj='%s/min-cpx.rst' % (self.gbdir)
+                    traj='min-cpx.rst' 
                     solvcomplex='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
             complex='%s/%s-complex.top' % (self.leapdir, self.ligand_name)
             protein='%s/%s-protein.top' % (self.leapdir, self.ligand_name)
@@ -445,19 +438,20 @@ self.leapdir, self.ligand_name, prefix)
             if self.gbmin==True:
                 solvcomplex=None
                 complex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
-                initial_traj='%s/ligandonly.rst' % self.gbdir
-                final_traj='%s/gbmin-ligand.rst' % (self.gbdir)
+                initial_traj='ligandonly.rst' 
+                final_traj='gbmin-ligand.rst' 
             else:
                 solvcomplex='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
                 complex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
-                initial_traj='%s/ligandonly.crd' % self.gbdir
-                final_traj='%s/min-ligand.rst' % (self.gbdir)
+                initial_traj='ligandonly.crd' 
+                final_traj='min-ligand.rst' 
             # first get initial GB energy of ligand in complex
             prefix='ligcpx'
             self.mmgbsa_guts(prefix, start, finish, solvcomplex, complex, initial_traj, interval=1)
             # next GB energy of ligand minimized in solution
             prefix='ligsolv'
             self.mmgbsa_guts(prefix, start, finish, solvcomplex, complex, final_traj, interval=1)
+        os.chdir(origdir)
         return
 
     def print_table(self):

@@ -56,13 +56,13 @@ def add_belly(fhandle, protein_belly):
   ibelly=1, bellymask = ":%s"''' % protein_belly)
     return fhandle
 
-def add_restraints(fhandle, restraint_atoms, restraint_k=0.5):
+def add_restraints(fhandle, restraint_atoms, restraint_k=5.0):
     fhandle.write('''\
   ntr = 1, 
   restraintmask = ":{0}", restraint_wt = {1},'''.format(restraint_atoms, restraint_k))
     return fhandle
 
-def write_simulation_input(md, dir, prefix, gbmodel=None, gbmin=False, restraint_atoms=None, restraint_k=0.5, maxcycles=50000, drms=0.1, steps=100000):
+def write_simulation_input(md, dir, prefix, gbmodel=None, gbmin=False, restraint_atoms=None, restraint_k=5.0, maxcycles=50000, drms=0.1, steps=100000):
     filename='%s/%s.in' % (dir, prefix)
     fhandle=open(filename, 'w')
     if md==False:
@@ -96,7 +96,7 @@ minimization
 nvt equilibration with Langevin therm, SHAKE Hbonds
   &cntrl
   imin = 0, ntx = 1, irest = 0, nstlim = %s,
-  ntt=2, temp0 = 298.15, tempi = 0, ig = -1,
+  ntt=3,  gamma_ln=1.0, temp0 = 298.15, tempi = 0, ig = -1,
   ntc = 2, ntf = 2, dt = 0.002,
   ntb = 0, ntp = 0, 
   igb=%s,
