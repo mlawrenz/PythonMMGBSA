@@ -102,10 +102,12 @@ def parse_cmdln():
     parser.add_option('-a','--adata',dest='adata',type='string')
     parser.add_option('-b','--bdata',dest='bdata',type='string')
     parser.add_option('-c','--cdata',dest='cdata',type='string')
+    parser.add_option('-d','--ddata',dest='ddata',type='string')
     (options, args) = parser.parse_args()
     return (options, args)
 
 if __name__=="__main__":	
     (options,args)=parse_cmdln()
-    main(refdata=options.refdata, adata=options.adata, bdata=options.bdata, cdata=options.cdata)
+    main(refdata=options.refdata, adata=options.adata, bdata=options.bdata, cdata=options.cdata, ddata=options.ddata)
+
 
