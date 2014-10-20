@@ -86,7 +86,7 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
         print "p=%s" % round(p_val, 4)
         print "std error =%s" % round(std_err, 2)
         if output==True:
-            ohandle.write('%s\t%s\t%s\t%s\n' % (namelist[n], round(r_val**2, 2), round(p_val**2, 2), round(std_err, 2)))
+            ohandle.write('%s\t%s\t%s\t%s\n' % (namelist[n], round(r_val**2, 2), round(p_val, 4), round(std_err, 2)))
         line=slope*numpy.array(ref_values)+intercept
         #R=pylab.corrcoef(numpy.array(ref_values), numpy.array(data))
         pylab.scatter(numpy.array(ref_values), numpy.array(data), c=colors[n],
