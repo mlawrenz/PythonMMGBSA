@@ -46,7 +46,7 @@ def read_file(file, column):
     return numpy.array(array)
     
 
-def main(refdata, adata, bdata, cdata=None, ddata=None):
+def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
     sorted_ref=get_ref(refdata)
     ref_values=numpy.array([item[1] for item in sorted_ref])
     ligand_names=[item[0] for item in sorted_ref]
@@ -73,6 +73,8 @@ def main(refdata, adata, bdata, cdata=None, ddata=None):
     pylab.figure()
     print "ligand names: ", ligand_names
     print "reference values are: ", ref_values
+    if output==True:
+        ohandle=open('statistics.output', 'w')
     for n in sorted(calc.keys()):
         name=namelist[n]
         data=calc[n]['sorted']
@@ -81,8 +83,10 @@ def main(refdata, adata, bdata, cdata=None, ddata=None):
         print "--------------"
         slope, intercept, r_val, p_val, std_err=stats.linregress(numpy.array(ref_values), numpy.array(data))
         print "R^2=%s" % round(r_val**2, 2)
-        print "p=%s" % round(p_val**2, 2)
+        print "p=%s" % round(p_val, 4)
         print "std error =%s" % round(std_err, 2)
+        if output==True:
+            ohandle.write('%s\t%s\t%s\t%s\n' % (namelist[n], round(r_val**2, 2), round(p_val**2, 2), round(std_err, 2)))
         line=slope*numpy.array(ref_values)+intercept
         #R=pylab.corrcoef(numpy.array(ref_values), numpy.array(data))
         pylab.scatter(numpy.array(ref_values), numpy.array(data), c=colors[n],
@@ -94,6 +98,9 @@ label='%s R^2=%s' % (os.path.dirname(name), round(r_val**2, 2)))
         pylab.ylabel('calc dG (MMGBSA)')
         pylab.xlabel('exp dG (from IC50)')
         n+=1
+    if output==True:
+        ohandle.close()
+        pylab.savefig('plots.png', dpi=300)
     pylab.show()
 
 
@@ -105,11 +112,14 @@ def parse_cmdln():
     parser.add_option('-b','--bdata',dest='bdata',type='string')
     parser.add_option('-c','--cdata',dest='cdata',type='string')
     parser.add_option('-d','--ddata',dest='ddata',type='string')
+    parser.add_option('-o', action="store_true", dest="output", help="using -o will save statistics to file statistics.output")
     (options, args) = parser.parse_args()
     return (options, args)
 
 if __name__=="__main__":	
     (options,args)=parse_cmdln()
-    main(refdata=options.refdata, adata=options.adata, bdata=options.bdata, cdata=options.cdata, ddata=options.ddata)
-
+    if options.output==True:
+        main(refdata=options.refdata, adata=options.adata, bdata=options.bdata, cdata=options.cdata, ddata=options.ddata, output=True)
+    else:
+        main(refdata=options.refdata, adata=options.adata, bdata=options.bdata, cdata=options.cdata, ddata=options.ddata)
 
