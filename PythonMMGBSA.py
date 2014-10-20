@@ -480,7 +480,7 @@ self.leapdir, self.ligand_name, prefix)
                     if 'VDWAALS' in line:
                         all_values[ligand]['vdW']=float(line.split()[1])
                         all_errors[ligand]['vdW']=float(line.split()[2])
-                    if 'EEL' in line:
+                    if 'EEL' in line and '1-4 EEL' not in line:
                         all_values[ligand]['eel_inter']=float(line.split()[1])
                         all_errors[ligand]['eel_inter']=float(line.split()[2])
                     if 'EGB' in line:
