@@ -81,22 +81,25 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
         print "--------------"
         print "%s values are: " % name, data
         print "--------------"
-        slope, intercept, r_val, p_val, std_err=stats.linregress(numpy.array(ref_values), numpy.array(data))
+        slope, intercept, r_val, p_val, std_err=stats.linregress(numpy.array(data), numpy.array(ref_values))
         print "R^2=%s" % round(r_val**2, 2)
         print "p=%s" % round(p_val, 4)
         print "std error =%s" % round(std_err, 2)
         if output==True:
             ohandle.write('%s\t%s\t%s\t%s\n' % (namelist[n], round(r_val**2, 2), round(p_val, 4), round(std_err, 2)))
-        line=slope*numpy.array(ref_values)+intercept
+        line=slope*numpy.array(data)+intercept
+        residuals=[(i-j)**2 for (i,j) in zip(ref_values, line)]
+        newerr=numpy.sqrt(sum(residuals)/(len(residuals)-2))
+        print "recalc std. err: %s" % round(newerr, 2)
         #R=pylab.corrcoef(numpy.array(ref_values), numpy.array(data))
-        pylab.scatter(numpy.array(ref_values), numpy.array(data), c=colors[n],
+        pylab.scatter(numpy.array(data), numpy.array(ref_values), c=colors[n],
 label='%s R^2=%s' % (os.path.dirname(name), round(r_val**2, 2)))
-        pylab.plot(ref_values, line, '-', c=colors[n]) 
+        pylab.plot(data, line, '-', c=colors[n]) 
         pylab.hold(True)
         lg=pylab.legend()
         lg.draw_frame(False)
-        pylab.ylabel('calc dG (MMGBSA)')
-        pylab.xlabel('exp dG (from IC50)')
+        pylab.xlabel('calc dG (MMGBSA)')
+        pylab.ylabel('exp dG (from IC50)')
         n+=1
     if output==True:
         ohandle.close()
