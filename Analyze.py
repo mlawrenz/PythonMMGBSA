@@ -24,6 +24,7 @@ def check_data(data1, data2):
         data1=data1[1:]
         if len(data1) != len(data2):
             print "problem with parsing data"
+            print "make sure the same ligands are in all files"
             sys.exit()
     else:
         pass
@@ -57,6 +58,7 @@ def main(refdata, adata, bdata, cdata=None, ddata=None):
     else:
         namelist=[adata, bdata, cdata, ddata]
     for (n, data) in enumerate(namelist):
+        print "gathering data from %s" % data
         calc[n]=dict()
         calc[n]['names']=read_file(data, 0)
         calc[n]['names']=check_data(calc[n]['names'], ref_values)
@@ -80,7 +82,7 @@ def main(refdata, adata, bdata, cdata=None, ddata=None):
         slope, intercept, r_val, p_val, std_err=stats.linregress(numpy.array(ref_values), numpy.array(data))
         print "R^2=%s" % round(r_val**2, 2)
         print "p=%s" % round(p_val**2, 2)
-        print "sigma=%s" % round(std_err, 2)
+        print "std error =%s" % round(std_err, 2)
         line=slope*numpy.array(ref_values)+intercept
         #R=pylab.corrcoef(numpy.array(ref_values), numpy.array(data))
         pylab.scatter(numpy.array(ref_values), numpy.array(data), c=colors[n],
