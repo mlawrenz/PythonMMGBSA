@@ -84,13 +84,13 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
         slope, intercept, r_val, p_val, std_err=stats.linregress(numpy.array(data), numpy.array(ref_values))
         print "R^2=%s" % round(r_val**2, 2)
         print "p=%s" % round(p_val, 4)
-        print "std error =%s" % round(std_err, 2)
-        if output==True:
-            ohandle.write('%s\t%s\t%s\t%s\n' % (namelist[n], round(r_val**2, 2), round(p_val, 4), round(std_err, 2)))
+        print "coeff error =%s" % round(std_err, 2)
         line=slope*numpy.array(data)+intercept
         residuals=[(i-j)**2 for (i,j) in zip(ref_values, line)]
         newerr=numpy.sqrt(sum(residuals)/(len(residuals)-2))
-        print "recalc std. err: %s" % round(newerr, 2)
+        print "residual std. err: %s" % round(newerr, 2)
+        if output==True:
+            ohandle.write('%s\t%s\t%s\t%s\n' % (namelist[n], round(r_val**2, 2), round(p_val, 4), round(newerr, 2)))
         #R=pylab.corrcoef(numpy.array(ref_values), numpy.array(data))
         pylab.scatter(numpy.array(data), numpy.array(ref_values), c=colors[n],
 label='%s R^2=%s' % (os.path.dirname(name), round(r_val**2, 2)))
