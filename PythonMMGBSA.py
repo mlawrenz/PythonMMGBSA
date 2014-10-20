@@ -32,9 +32,9 @@ def run_linux_process(command):
     output, err=p.communicate()
     return output, err
 
-def amber_mask_reducer(mask):
+def amber_mask_reducer(testmask):
     # hack to workaround ambmask stack underflow if you specify every residue
-    residues_list=mask.split(',')
+    residues_list=testmask.split(',')
     newlist=[]
     badlist=[n for (n, i) in enumerate(residues_list) if i=='']
     for i in badlist:
@@ -66,16 +66,24 @@ def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
         # then set restraints to include MOL (allows just protein around
         # molecule to move)
         command="ambmask -p %s -c %s -find \":MOL > @%s | :MOL\" | grep ATOM | awk '{print $5}' | grep -v \"\*\*\" | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
+        converse="ambmask -p %s -c %s -find \":MOL < @%s | ! :MOL\" | grep ATOM | awk '{print $5}' | grep -v \"\*\*\" | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
     else:
         # else do not include MOL, so it moves
         command="ambmask -p %s -c %s -find \":MOL > @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
+        converse="ambmask -p %s -c %s -find \":MOL < @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
     mask=subprocess.check_output(command, shell=True)
+    conversemask=subprocess.check_output(converse, shell=True)
     mask=amber_mask_reducer(mask)
+    conversemask=amber_mask_reducer(conversemask)
+    #save restrained residue atoms
     command="ambmask -p %s -c %s -find :%s" % (base_top, base_crd, mask)
     output=subprocess.check_output(command, shell=True)
-    #save restrained residue atoms
     name=prmtop.split('.top')[0]
     numpy.savetxt('%s_restraintresidues.txt' % name, output.split('\n'), fmt='%s')
+    #save moveable residue atoms
+    command="ambmask -p %s -c %s -find :%s" % (base_top, base_crd, conversemask)
+    output=subprocess.check_output(command, shell=True)
+    numpy.savetxt('%s_moveableresidues.txt' % name, output.split('\n'), fmt='%s')
     os.chdir(origdir)
     return mask
     
