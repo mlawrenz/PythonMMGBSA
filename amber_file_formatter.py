@@ -89,7 +89,7 @@ minimization
   ntwx = 1000, ntwe = 0, ntpr = 1000,
   igb=%s,
   drms   = %s,
-  cut = 1000.0,''' % (maxcycles, gbmodel, drms))
+  cut = 10.0,''' % (maxcycles, gbmodel, drms))
     else:
         if gbmin==True:
             fhandle.write('''\
@@ -101,7 +101,7 @@ nvt equilibration with Langevin therm, SHAKE Hbonds
   ntb = 0, ntp = 0, 
   igb=%s,
   ntwx = 1000, ntwe = 0, ntwr = 1000, ntpr = 1000,
-  cut = 1000.0, 
+  cut = 10.0, 
   nscm = 100,''' % (steps, gbmodel))
         else:
             fhandle.write('''\
