@@ -32,13 +32,25 @@ def run_linux_process(command):
     output, err=p.communicate()
     return output, err
 
-def amber_mask_reducer(testmask):
+def amber_mask_reducer(testmask, comparemask):
     # hack to workaround ambmask stack underflow if you specify every residue
-    residues_list=testmask.split(',')
+    # also am keeping whole residues that any atom is within X of ligand
     newlist=[]
+    residues_list=testmask.split(',')
     badlist=[n for (n, i) in enumerate(residues_list) if i=='']
     for i in badlist:
         residues_list.pop(i)
+    residues_list=sorted([int(i) for i in residues_list])
+    compareresidues_list=comparemask.split(',')
+    badlist=[n for (n, i) in enumerate(compareresidues_list) if i=='']
+    for i in badlist:
+        compareresidues_list.pop(i)
+    compareresidues_list=sorted([int(i) for i in compareresidues_list])
+    # exclude whole moveable residues
+    for res in compareresidues_list:
+        if res in residues_list:
+            index=residues_list.index(res)
+            residues_list.pop(index)
     residue_list=numpy.array(sorted([int(i) for i in residues_list]))
     previous=residue_list[0]
     start=previous
@@ -46,16 +58,23 @@ def amber_mask_reducer(testmask):
         if res==(previous + 1):
             previous=res
             pass
+        elif start-previous==0:
+            newlist.append('%s' % previous)
+            previous=res
+            start=res
         else:
             newlist.append('%s-%s' % (start, previous))
             previous=res
             start=res
-    newlist.append('%s-%s' % (start, previous))
+    if start-previous==0:
+        newlist.append('%s' % start)
+    else:
+        newlist.append('%s-%s' % (start, previous))
     return ','.join(newlist)
         
 
 def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
-    # select all atoms in residues that are within prot_radius of the molecule
+    # select **whole** residues that are within prot_radius of the molecule
     # include MOL, with option of restraining it too
     base_top=os.path.basename(prmtop) #workaround ambmask char limit
     base_crd=os.path.basename(inpcrd)
@@ -73,16 +92,11 @@ def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
         converse="ambmask -p %s -c %s -find \":MOL < @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
     mask=subprocess.check_output(command, shell=True)
     conversemask=subprocess.check_output(converse, shell=True)
-    mask=amber_mask_reducer(mask)
-    #save restrained residue atoms
-    command="ambmask -p %s -c %s -find :%s" % (base_top, base_crd, mask)
-    output=subprocess.check_output(command, shell=True)
-    name=prmtop.split('.top')[0]
-    numpy.savetxt('%s_restraintresidues.txt' % name, output.split('\n'), fmt='%s')
-    #save moveable residue atoms
-    command="ambmask -p %s -c %s -find :%s" % (base_top, base_crd, conversemask)
-    output=subprocess.check_output(command, shell=True)
-    numpy.savetxt('%s_moveableresidues.txt' % name, output.split('\n'), fmt='%s')
+    mask=amber_mask_reducer(mask, conversemask)
+    name=base_top.split('.top')[0]
+    # save restrained, and moveable residue atoms
+    numpy.savetxt('%s_restraintresidues.txt' % name, [mask,], fmt='%s')
+    numpy.savetxt('%s_moveableresidues.txt' % name, [conversemask,], fmt='%s')
     os.chdir(origdir)
     return mask
     
@@ -111,16 +125,22 @@ MD, for processing with MMGB scores'''
             print "NEED TO NAME LIGAND \"MOL\""
             sys.exit()
         self.ligand_name=os.path.basename(ligfile).split('.mol2')[0]
-        self.antdir='%s/%s-antechamber-output' % (os.getcwd(), self.jobname)
+        self.antdir='%s/%s-antechamber-output' % (os.getcwd(), self.ligand_name)
         self.leapdir='%s/%s-leap-output' % (os.getcwd(), self.jobname)
         self.amberligfile='%s/%s.amber.mol2' % (self.antdir, self.ligand_name)
         self.md=md
         self.gpu=gpu
         self.mdsteps=mdsteps
         if self.md==True:
-            self.gbdir='%s-mmgb%s-md' % (self.jobname, self.gbmodel)
+            if gbmin==True:
+                self.gbdir='%s-implicit-gb%s-md' % (self.jobname, self.gbmodel)
+            else:
+                self.gbdir='%s-explicit-gb%s-md' % (self.jobname, self.gbmodel)
         else:
-            self.gbdir='%s-mmgb%s-min' % (self.jobname, self.gbmodel)
+            if gbmin==True:
+                self.gbdir='%s-implicit-gb%s-min' % (self.jobname, self.gbmodel)
+            else:
+                self.gbdir='%s-explicit-gb%s-min' % (self.jobname, self.gbmodel)
         if not os.path.exists(self.gbdir):
             os.mkdir(self.gbdir)
         self.maxcycles=int(maxcycles)
@@ -221,10 +241,11 @@ MD, for processing with MMGB scores'''
         # run antechamber in antdir to avoid overwritten files by parallel jobs
         frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
         if os.path.exists(self.amberligfile) and os.path.exists(frcmodfile):
-            print "ALREADY HAVE CHARGED MOL2 AND FRCMOD FILES FOR %s" % self.ligand_name
+            print "CHARGED MOL2 AND FRCMOD FILES FOR %s in %s" % (self.ligand_name, self.antdir)
         else:
             print "--------------------------------------"
             print "RUNNING ANTECHAMBER ON LIGAND---------"
+            print "OUTPUT %s-----------------------------" % self.antdir
             #make new mol2 file for ligand, including charges
             command='%s/bin/antechamber -i %s -fi mol2 -o %s -fo mol2 -c %s -nc %s' % (os.environ['AMBERHOME'], self.ligfile,  self.amberligfile, self.charge_method,self.ligcharge)
             output, err=run_linux_process(command)
