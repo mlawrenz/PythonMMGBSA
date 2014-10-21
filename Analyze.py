@@ -96,7 +96,7 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
 label='%s R^2=%s' % (os.path.dirname(name), round(r_val**2, 2)))
         pylab.plot(data, line, '-', c=colors[n]) 
         pylab.hold(True)
-        lg=pylab.legend()
+        lg=pylab.legend(loc=2)
         lg.draw_frame(False)
         pylab.xlabel('calc dG (MMGBSA)')
         pylab.ylabel('exp dG (from IC50)')
