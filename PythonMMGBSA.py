@@ -74,7 +74,6 @@ def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
     mask=subprocess.check_output(command, shell=True)
     conversemask=subprocess.check_output(converse, shell=True)
     mask=amber_mask_reducer(mask)
-    conversemask=amber_mask_reducer(conversemask)
     #save restrained residue atoms
     command="ambmask -p %s -c %s -find :%s" % (base_top, base_crd, mask)
     output=subprocess.check_output(command, shell=True)
