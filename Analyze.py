@@ -19,13 +19,18 @@ def get_ref(refdata):
     sorted_ref=sorted(ref.iteritems(), key=operator.itemgetter(1))
     return sorted_ref
 
-def check_data(data1, data2):
+def check_data(data1, data2, names=False):
     if len(data1) != len(data2):
         data1=data1[1:]
         if len(data1) != len(data2):
             print "problem with parsing data"
-            print "make sure the same ligands are in all files"
+            print "different # of ligands, ensure the same ligands are in files"
             sys.exit()
+    if names==True:
+      for i in data2:
+          if i not in data1:
+              print "different ligand names, ensure the same ligands are in files"
+              sys.exit()
     else:
         pass
     return data1
@@ -61,7 +66,7 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
         print "gathering data from %s" % data
         calc[n]=dict()
         calc[n]['names']=read_file(data, 0)
-        calc[n]['names']=check_data(calc[n]['names'], ref_values)
+        calc[n]['names']=check_data(calc[n]['names'], ref_values, names=True)
         calc[n]['values']=read_file(data, 1)
         calc[n]['values']=check_data(calc[n]['values'], ref_values)
         calc[n]['sorted']=numpy.zeros((len(calc[n]['values'])))
