@@ -24,13 +24,14 @@ def check_data(data1, data2, names=False):
         data1=data1[1:]
         if len(data1) != len(data2):
             print "problem with parsing data"
-            print "different # of ligands, ensure the same ligands are in files"
+            print "different # of ligands, ensure same ligands in files"
             sys.exit()
     if names==True:
-      for i in data2:
-          if i not in data1:
-              print "different ligand names, ensure the same ligands are in files"
-              sys.exit()
+        for i in data2:
+            if i not in data1:
+                print "missing %s" % i
+                print "different ligand names, ensure same ligands in files"
+                sys.exit()
     else:
         pass
     return data1
