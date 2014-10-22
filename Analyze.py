@@ -57,7 +57,9 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
     ref_values=numpy.array([item[1] for item in sorted_ref])
     ligand_names=[item[0] for item in sorted_ref]
     calc=dict()
-    if cdata==None:
+    if bdata==None:
+        namelist=[adata, ]
+    elif cdata==None:
         namelist=[adata, bdata]
     elif ddata==None:
         namelist=[adata, bdata, cdata]
@@ -67,7 +69,7 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
         print "gathering data from %s" % data
         calc[n]=dict()
         calc[n]['names']=read_file(data, 0)
-        calc[n]['names']=check_data(calc[n]['names'], ref_values, names=True)
+        calc[n]['names']=check_data(calc[n]['names'], ligand_names, names=True)
         calc[n]['values']=read_file(data, 1)
         calc[n]['values']=check_data(calc[n]['values'], ref_values)
         calc[n]['sorted']=numpy.zeros((len(calc[n]['values'])))
