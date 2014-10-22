@@ -1,5 +1,5 @@
 
-def print_table(dir):
+def print_table(dir, errors=False):
     all_errors=['MMGB', 'strain', 'vdW', 'eel_inter', 'eel/EGB', 'EGB', 'E_surf', 'E_lig']
     all_values=dict()
     all_errors=dict()
@@ -73,15 +73,29 @@ def print_table(dir):
         entry=''.join([name, entry, '\n'])
         ohandle.write(entry)
         print entry
+    ohandle.close()
+    if errors==True:
+        ohandle.open('%s/estimates_error.txt' % dir, 'w')
+        header='MMGB+str    err    MMGB   err    strain    err'
+        ohandle.write(header)
+        for ligand in sorted_ligands:
+            line='%s\t%s\t%s\t%s\t%s\t%s\n' % (all_values[ligand]['MMGB+str'], all_errors[ligand]['MMGB+str'], all_values[ligand]['MMGB'], all_errors[ligand]['MMGB'], all_values[ligand]['strain'], all_errors[ligand]['strain'])
+            ohandle.write(line)
+    ohandle.close()
 
 
 def parse_cmdln():
     parser=optparse.OptionParser()
     parser.add_option('-d','--dir',dest='dir',type='string')
+    parser.add_option('-e', action="store_true", dest="error", help="using -e will print errors on estimates")
     (options, args) = parser.parse_args()
+
     return (options, args)
 
 if __name__=="__main__":	
     (options,args)=parse_cmdln()
-    print_table(dir=options.dir)
+    if options.errors==True:
+        print_table(dir=options.dir, errors=True)
+    else:
+        print_table(dir=options.dir)
 
