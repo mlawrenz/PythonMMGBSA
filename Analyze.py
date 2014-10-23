@@ -87,6 +87,9 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
         for item in sorted_ref:
             name=item[0]
             location=numpy.where(calc[n]['names']==name)[0]
+            if len(location) > 1:
+                print "HAVE 2 ENTRIES FOR %s" % name
+                sys.exit()
             if location.size:
                 data[count]=calc[n]['values'][location]
                 refdata[count]=item[1]
