@@ -76,6 +76,7 @@ def amber_mask_reducer(testmask, comparemask):
 def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
     # select **whole** residues that are within prot_radius of the molecule
     # include MOL, with option of restraining it too
+    # exclude explicit waters from all of this
     base_top=os.path.basename(prmtop) #workaround ambmask char limit
     base_crd=os.path.basename(inpcrd)
     wd=os.path.dirname(prmtop)
@@ -84,12 +85,12 @@ def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
     if ligrestraint==True:
         # then set restraints to include MOL (allows just protein around
         # molecule to move)
-        command="ambmask -p %s -c %s -find \":MOL > @%s | :MOL\" | grep ATOM | awk '{print $5}' | grep -v \"\*\*\" | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
-        converse="ambmask -p %s -c %s -find \":MOL < @%s | ! :MOL\" | grep ATOM | awk '{print $5}' | grep -v \"\*\*\" | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
+        command="ambmask -p %s -c %s -find \"! :WAT & :MOL > @%s | :MOL\" | grep ATOM | awk '{print $5}' | grep -v \"\*\*\" | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
+        converse="ambmask -p %s -c %s -find \"! :WAT & :MOL < @%s | ! :MOL\" | grep ATOM | awk '{print $5}' | grep -v \"\*\*\" | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
     else:
         # else do not include MOL, so it moves
-        command="ambmask -p %s -c %s -find \":MOL > @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
-        converse="ambmask -p %s -c %s -find \":MOL < @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
+        command="ambmask -p %s -c %s -find \"! :WAT & :MOL > @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
+        converse="ambmask -p %s -c %s -find \"! :WAT & :MOL < @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
     mask=subprocess.check_output(command, shell=True)
     conversemask=subprocess.check_output(converse, shell=True)
     mask=amber_mask_reducer(mask, conversemask)
