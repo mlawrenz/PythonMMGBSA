@@ -48,4 +48,5 @@ setup(name='PythonMMGBSA',
       version = '1.0',
       description = 'Endpoint protein-ligand binding free energy calculations', 
       py_modules = ['PythonMMGBSA', 'amber_file_formatter'],
-      scripts= ['RunMMGBSA.py', 'Analyze.py', 'compare_with_perl.py'],)
+      scripts= ['RunMMGBSA.py', 'Analyze.py', 'compare_with_perl.py', 'PrintTable.py'])
+

@@ -1,5 +1,9 @@
+import optparse
+import os
+import glob
+import numpy
 
-def print_table(dir, errors=False):
+def print_table(dir, errorwrite=False):
     all_errors=['MMGB', 'strain', 'vdW', 'eel_inter', 'eel/EGB', 'EGB', 'E_surf', 'E_lig']
     all_values=dict()
     all_errors=dict()
@@ -56,7 +60,7 @@ def print_table(dir, errors=False):
                     all_errors[ligand]['E_lig']=line.split()[3]
     for ligand in components['ligcpx'].keys():
         all_values[ligand]['strain']=components['ligcpx'][ligand]['value']-components['ligsolv'][ligand]['value']
-        all_errors[ligand]['strain']=error=numpy.sqrt(components['ligcpx'][ligand]['err']**2+components['ligsolv'][ligand]['err']**2)
+        all_errors[ligand]['strain']=numpy.sqrt(components['ligcpx'][ligand]['err']**2+components['ligsolv'][ligand]['err']**2)
     ligands=all_values.keys()
     sorted_ligands=sorted(ligands, key=lambda x: all_values[x]['MMGB'])
     ohandle=open('%s/sorted_results.tbl' % dir, 'w')
@@ -74,13 +78,16 @@ def print_table(dir, errors=False):
         ohandle.write(entry)
         print entry
     ohandle.close()
-    if errors==True:
-        ohandle.open('%s/estimates_error.txt' % dir, 'w')
-        header='MMGB+str    err    MMGB   err    strain    err'
+    if errorwrite==True:
+        ohandle=open('%s/estimates_error.txt' % dir, 'w')
+        header='name     MMGB+str   err    MMGB   err    strain    err'
         ohandle.write(header)
+        print header
         for ligand in sorted_ligands:
-            line='%s\t%s\t%s\t%s\t%s\t%s\n' % (all_values[ligand]['MMGB+str'], all_errors[ligand]['MMGB+str'], all_values[ligand]['MMGB'], all_errors[ligand]['MMGB'], all_values[ligand]['strain'], all_errors[ligand]['strain'])
+            comboerr=numpy.sqrt(all_errors[ligand]['strain']**2+all_errors[ligand]['MMGB']**2)
+            line='%s\t%s\t%s\t%s\t%s\t%s\t%s\n' % (ligand, round(all_values[ligand]['MMGB+str'], 2), round(comboerr,2), round(all_values[ligand]['MMGB'], 2), round(all_errors[ligand]['MMGB'],2), round(all_values[ligand]['strain'],2), round(all_errors[ligand]['strain'], 2))
             ohandle.write(line)
+            print line
     ohandle.close()
 
 
@@ -94,8 +101,8 @@ def parse_cmdln():
 
 if __name__=="__main__":	
     (options,args)=parse_cmdln()
-    if options.errors==True:
-        print_table(dir=options.dir, errors=True)
+    if options.error==True:
+        print_table(dir=options.dir, errorwrite=True)
     else:
         print_table(dir=options.dir)
 
