@@ -114,6 +114,11 @@ MD, for processing with MMGB scores'''
         self.gbmodel=int(gbmodel)
         self.radii=get_pbbond_radii(int(gbmodel))
         self.gbmin=gbmin
+        #store minimized complex
+        if self.gbmin==True:
+            self.mincpx='%s/min-cpx.rst' % self.gbdir
+        else:
+            self.mincpx='%s/gbmin-cpx.rst' % self.gbdir
         print "--------------------------------------"
         print "SYSTEM SET UP-------------------------"
         print "USING MMGB=%s MODEL" % self.gbmodel
@@ -351,10 +356,11 @@ self.leapdir, self.ligand_name, prefix)
             restraint_atoms=None
         self.restraint_atoms=restraint_atoms
         self.simulation_guts(prefix, prmtop, inpcrd)
-        #store minimized complex
-        self.mincpx='%s/%s.rst' % (self.gbdir, prefix)
         print "self.mincpx is %s" % prefix
         if self.md==True:
+            if not os.path.exists(self.mincpx):
+                print "minimization failed, no %s" % self.mincpx
+                sys.exit()
             inpcrd=self.mincpx
             self.simulation_guts(mdprefix, prmtop, inpcrd, mdrun=True)
         return
@@ -363,6 +369,9 @@ self.leapdir, self.ligand_name, prefix)
         # extract ligand from minimized complex structure with cpptraj
         print "--------------------------------------"
         print "SETTING UP LIGAND STRAIN CALC---------"
+        if not os.path.exists(self.mincpx):
+            print "minimization failed, no %s" % self.mincpx
+            sys.exit()
         base=os.path.basename(self.mincpx)
         filename='%s/getligand.ptraj' % self.gbdir
         if self.gbmin==True:

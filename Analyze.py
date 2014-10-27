@@ -94,6 +94,10 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
                 data[count]=calc[n]['values'][location]
                 refdata[count]=item[1]
                 count+=1
+        location=numpy.where(data==0)[0]
+        if location.size:
+            print "MISMATCH IN DATA"
+            sys.exit()
         print "--------------"
         print "%s values are: " % dataname, data
         print "--------------"
