@@ -80,7 +80,7 @@ def print_table(dir, errorwrite=False):
     ohandle.close()
     if errorwrite==True:
         ohandle=open('%s/estimates_error.txt' % dir, 'w')
-        header='name     MMGB+str   err    MMGB   err    strain    err'
+        header='name     MMGB+str   err    MMGB   err    strain    err\n'
         ohandle.write(header)
         print header
         for ligand in sorted_ligands:
