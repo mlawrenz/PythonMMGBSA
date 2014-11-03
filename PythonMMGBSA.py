@@ -146,9 +146,9 @@ MD, for processing with MMGB scores'''
             os.mkdir(self.gbdir)
         #store minimized complex
         if self.gbmin==True:
-            self.mincpx='%s/min-cpx.rst' % self.gbdir
-        else:
             self.mincpx='%s/gbmin-cpx.rst' % self.gbdir
+        else:
+            self.mincpx='%s/min-cpx.rst' % self.gbdir
         self.maxcycles=int(maxcycles)
         self.drms=float(drms)
         if not os.environ['AMBERHOME']:
