@@ -134,14 +134,14 @@ MD, for processing with MMGB scores'''
         self.mdsteps=mdsteps
         if self.md==True:
             if gbmin==True:
-                self.gbdir='%s-implicit-gb%s-md' % (self.jobname, self.gbmodel)
+                self.gbdir='%s/%s-implicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
             else:
-                self.gbdir='%s-explicit-gb%s-md' % (self.jobname, self.gbmodel)
+                self.gbdir='%s/%s-explicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
         else:
             if gbmin==True:
-                self.gbdir='%s-implicit-gb%s-min' % (self.jobname, self.gbmodel)
+                self.gbdir='%s/%s-implicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
             else:
-                self.gbdir='%s-explicit-gb%s-min' % (self.jobname, self.gbmodel)
+                self.gbdir='%s/%s-explicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
         if not os.path.exists(self.gbdir):
             os.mkdir(self.gbdir)
         #store minimized complex
