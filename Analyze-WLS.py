@@ -151,6 +151,8 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
         lg=pylab.legend(loc=2)
         lg.draw_frame(False)
         n+=1
+    if output==True:
+        pylab.savefig('plot.png')
     pylab.show()
 
 
