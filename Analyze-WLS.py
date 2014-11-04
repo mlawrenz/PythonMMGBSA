@@ -1,4 +1,7 @@
-import numpy, pylab
+import pandas, numpy, scipy
+import random
+import statsmodels.formula.api as sm
+import pylab
 import os
 import sys
 import operator
@@ -51,6 +54,30 @@ def read_file(file, column):
                 pass
     return numpy.array(array)
     
+def statsmodels_results(xdata, ydata, xerr=None):
+    ws=pandas.DataFrame({'x':xdata, 'y':ydata})
+    if xerr!=None:
+        weights=pandas.Series(xerr)
+        fit=sm.wls('y ~ x', data=ws, weights=1/weights).fit()
+    else:
+        fit=sm.ols('y ~ x', data=ws).fit()
+    Int, x=fit.pvalues
+    residuals=fit.resid
+    rval=fit.rsquared
+    residuals=[abs(i) for i in residuals]
+    newerr=numpy.sqrt(sum(residuals)/(len(residuals)-2))
+    return fit, round(rval, 2), round(newerr,2)
+
+def stats_results(xdata, ydata):
+    slope, intercept, r_val, p_val, std_err=stats.linregress(xdata, ydata)
+    print "R^2=%s" % round(r_val**2, 2)
+    print "p=%s" % round(p_val, 4)
+    print "coeff error =%s" % round(std_err, 2)
+    prediction=slope*numpy.array(xdata)+intercept
+    residuals=[(i-j)**2 for (i,j) in zip(ydata, prediction)]
+    newerr=numpy.sqrt(sum(residuals)/(len(residuals)-2))
+    print "residual std. err: %s" % round(newerr, 2)
+    return r_val, prediction, newerr
 
 def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
     sorted_ref=get_ref(refdata)
@@ -72,6 +99,8 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
         calc[n]['names']=check_data(calc[n]['names'], ligand_names, names=True)
         calc[n]['values']=read_file(data, 1)
         calc[n]['values']=check_data(calc[n]['values'], ref_values)
+        calc[n]['errors']=read_file(data, 2)
+        calc[n]['errors']=check_data(calc[n]['errors'], ref_values)
         calc[n]['sorted']=numpy.zeros((len(calc[n]['values'])))
     colors=['r', 'b', 'k', 'g', 'm']
     pylab.figure()
@@ -82,6 +111,7 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
     for n in sorted(calc.keys()):
         dataname=namelist[n]
         data=numpy.zeros((len(calc[n]['values'])))
+        xerr=numpy.zeros((len(calc[n]['values'])))
         refdata=numpy.zeros((len(calc[n]['values'])))
         count=0
         for item in sorted_ref:
@@ -92,6 +122,7 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
                 sys.exit()
             if location.size:
                 data[count]=calc[n]['values'][location]
+                xerr[count]=calc[n]['errors'][location]
                 refdata[count]=item[1]
                 count+=1
         location=numpy.where(data==0)[0]
@@ -101,27 +132,25 @@ def main(refdata, adata, bdata, cdata=None, ddata=None, output=False):
         print "--------------"
         print "%s values are: " % dataname, data
         print "--------------"
-        slope, intercept, r_val, p_val, std_err=stats.linregress(data, refdata)
-        print "R^2=%s" % round(r_val**2, 2)
-        print "p=%s" % round(p_val, 4)
-        print "coeff error =%s" % round(std_err, 2)
-        line=slope*numpy.array(data)+intercept
-        residuals=[(i-j)**2 for (i,j) in zip(refdata, line)]
-        newerr=numpy.sqrt(sum(residuals)/(len(residuals)-2))
-        print "residual std. err: %s" % round(newerr, 2)
-        if output==True:
-            ohandle.write('%s\t%s\t%s\t%s\n' % (namelist[n], round(r_val**2, 2), round(p_val, 4), round(newerr, 2)))
-        pylab.scatter(data, refdata, c=colors[n], label='%s R^2=%s, N=%s' % (os.path.basename(dataname), round(r_val**2, 2), len(data)))
-        pylab.plot(data, line, '-', c=colors[n]) 
+        ols_fit, o_rval, o_newerr=statsmodels_results(data, refdata)
+        wls_fit, w_rval, w_newerr=statsmodels_results(data, refdata, xerr)
+        print "correlations"
+        print "ols %s     wls %s" % (o_rval, w_rval)
+        print "residual errors"
+        print "ols %s     wls %s" % (o_newerr, w_newerr)
+        print "-----OLS-----"
+        print ols_fit.summary()
+        print "-----WLS-----"
+        print wls_fit.summary()
+        pylab.errorbar(data, refdata, xerr=xerr, c=colors[n], fmt='o')
         pylab.hold(True)
-        lg=pylab.legend(loc=2, scatterpoints = 1)
-        lg.draw_frame(False)
+        pylab.plot(data, wls_fit.predict(), color=colors[n], label='%s R^2=%s, N=%s' % (os.path.basename(dataname), w_rval, len(data)))
+        #pylab.plot(data, ols_fit.predict(), 'b-', label='ols %s' % o_rval)
         pylab.xlabel('calc dG (MMGBSA)')
         pylab.ylabel('exp dG (from IC50)')
+        lg=pylab.legend(loc=2)
+        lg.draw_frame(False)
         n+=1
-    if output==True:
-        ohandle.close()
-        pylab.savefig('plots.png', dpi=300)
     pylab.show()
 
 
