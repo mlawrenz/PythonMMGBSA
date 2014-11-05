@@ -12,12 +12,12 @@ def write_leap(dir, prefix, ligand_name, ff, radii, frcmodfile, newligfile, prot
         fhandle=open('{0}/{1}-{2}-leaprc'.format(dir, ligand_name, prefix), 'w')
         # write headers common to all
         fhandle.write('''\
-source leaprc.{5}
+source leaprc.{0}
 source leaprc.gaff
 loadAmberParams frcmod.ionsjc_tip3p
 
-loadAmberParams %s
-''' % frcmodfile)
+loadAmberParams {1}
+'''.format(ff, frcmodfile))
         if complex==True:
             # write complex info 
             fhandle.write('''\
@@ -31,7 +31,7 @@ saveAmberParm prot {4}/{3}-protein.top {4}/{3}-protein.crd
 
 
 saveAmberParm complex {4}/{3}-complex.top {4}/{3}-complex.crd
-'''.format(newligfile,protfile, radii, ligand_name, dir, ff))
+'''.format(newligfile,protfile, radii, ligand_name, dir))
             if gbmin==False:
                 fhandle.write('''\
 solvateOct complex TIP3PBOX 14.0
