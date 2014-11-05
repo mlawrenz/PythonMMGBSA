@@ -520,7 +520,7 @@ self.leapdir, self.ligand_name, prefix)
             nonpolar='ENPOLAR'
         else:
             type='PB'
-            nonpolar=nonpolar
+            nonpolar='ESURF'
         all_errors=['MM%s' % type, 'strain', 'vdW', 'eel_inter', 'eel/E%s' % type, 'E%s' % type, nonpolar, 'E_lig']
         all_values=dict()
         all_errors=dict()
@@ -551,7 +551,7 @@ self.leapdir, self.ligand_name, prefix)
                     if 'E%s' % type in line:
                         all_values[ligand]['E%s' % type]=float(line.split()[1])
                         all_errors[ligand]['E%s' % type]=float(line.split()[2])
-                    if 'ESURF' in line:
+                    if nonpolar in line:
                         all_values[ligand][nonpolar]=float(line.split()[1])
                         all_errors[ligand][nonpolar]=float(line.split()[2])
             all_values[ligand]['eel/E%s' % type]=all_values[ligand]['eel_inter']+all_values[ligand]['E%s' % type]
