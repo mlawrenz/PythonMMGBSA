@@ -546,14 +546,14 @@ self.leapdir, self.ligand_name, prefix)
                     if 'EEL' in line and '1-4 EEL' not in line:
                         all_values[ligand]['eel_inter']=float(line.split()[1])
                         all_errors[ligand]['eel_inter']=float(line.split()[2])
-                    if 'EGB' in line:
+                    if 'E%s' % type in line:
                         all_values[ligand]['E%s' % type]=float(line.split()[1])
                         all_errors[ligand]['E%s' % type]=float(line.split()[2])
                     if 'ESURF' in line:
                         all_values[ligand]['E_surf']=float(line.split()[1])
                         all_errors[ligand]['E_surf']=float(line.split()[2])
-            all_values[ligand]['eel/E%s' % type]=all_values[ligand]['eel_inter']+all_values[ligand]['EGB']
-            all_errors[ligand]['eel/E%s' % type]=numpy.sqrt(all_errors[ligand]['eel_inter']**2 + all_errors[ligand]['EGB']**2)
+            all_values[ligand]['eel/E%s' % type]=all_values[ligand]['eel_inter']+all_values[ligand]['E%s' % type]
+            all_errors[ligand]['eel/E%s' % type]=numpy.sqrt(all_errors[ligand]['eel_inter']**2 + all_errors[ligand]['E%s' % type]**2)
         states=['ligcpx', 'ligsolv'] # cpx - solv = strain
         components=dict()
         for ligandstate in states:
@@ -577,7 +577,7 @@ self.leapdir, self.ligand_name, prefix)
             all_values[ligand]['strain']=components['ligcpx'][ligand]['value']-components['ligsolv'][ligand]['value']
             all_errors[ligand]['strain']=error=numpy.sqrt(components['ligcpx'][ligand]['err']**2+components['ligsolv'][ligand]['err']**2)
         ligands=all_values.keys()
-        sorted_ligands=sorted(ligands, key=lambda x: all_values[x]['MMGB'])
+        sorted_ligands=sorted(ligands, key=lambda x: all_values[x]['MM%s' % type])
         ohandle=open('%s/sorted_results.tbl' % dir, 'w')
         formatkeyorder=['name  MM%s+str' % type, 'MM{0}  strain  vdW  eel_inter eel/E{0} E{0}  E_surf  E_lig'.format(type)] 
         entry=''.join(['%s\t' % x for x in formatkeyorder])
