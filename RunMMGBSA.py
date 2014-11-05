@@ -32,7 +32,7 @@ group.add_argument('-mdsteps','--mdsteps',dest='mdsteps',  help='MD simulation s
 
 
 def main(args):
-    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, pbs=args.pb, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps, gpu=args.gpu)
+    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, pb=args.pb, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps, gpu=args.gpu)
     mol.run_antechamber()
     mol.run_leap()
     mol.run_cpx_simulation() 
