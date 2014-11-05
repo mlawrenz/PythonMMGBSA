@@ -147,7 +147,7 @@ run PB
  istrng=0.1, exdi=80, indi=1.0,
  inp=2, cavity_surften=0.0378, cavity_offset=-0.5692,
  fillratio=4, scale=2.0, 
- linit=1000, pbrad=1.4,
+ linit=1000, prbrad=1.4,
  radiopt=1,
  /'''.format( start, interval, finish))
     fhandle.close()
