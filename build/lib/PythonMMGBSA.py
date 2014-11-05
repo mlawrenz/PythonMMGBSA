@@ -109,8 +109,7 @@ MD, for processing with MMGB scores'''
     def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, pb=False, gbmodel=1, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, gpu=False, verbose=False):
         self.pb=pb
         if self.pb==True:
-            print "USING PB"
-            # WITH RADII FROM GB=1 MODEL"
+            print "USING RADII FROM GB=1 MODEL"
         else:
             print "USING MMGB=%s MODEL" % self.gbmodel
         self.gbmodel=int(gbmodel)
@@ -515,11 +514,7 @@ self.leapdir, self.ligand_name, prefix)
 
     def print_table(self):
         dir=self.gbdir
-        if self.pb==True:
-            type='PB'
-        else:
-            type='PB'
-        all_errors=['MM%s' % type, 'strain', 'vdW', 'eel_inter', 'eel/E%s' % type, 'E%s' % type, 'E_surf', 'E_lig']
+        all_errors=['MMGB', 'strain', 'vdW', 'eel_inter', 'eel/EGB', 'EGB', 'E_surf', 'E_lig']
         all_values=dict()
         all_errors=dict()
         files=glob.glob('%s/*-cpx-*FINAL*' % dir)
@@ -538,8 +533,8 @@ self.leapdir, self.ligand_name, prefix)
                     collect=True
                 if collect==True:
                     if 'DELTA TOTAL' in line:
-                        all_values[ligand]['MM%s' % type]=float(line.split()[2])
-                        all_errors[ligand]['MM%s' % type]=float(line.split()[3])
+                        all_values[ligand]['MMGB']=float(line.split()[2])
+                        all_errors[ligand]['MMGB']=float(line.split()[3])
                     if 'VDWAALS' in line:
                         all_values[ligand]['vdW']=float(line.split()[1])
                         all_errors[ligand]['vdW']=float(line.split()[2])
@@ -547,13 +542,13 @@ self.leapdir, self.ligand_name, prefix)
                         all_values[ligand]['eel_inter']=float(line.split()[1])
                         all_errors[ligand]['eel_inter']=float(line.split()[2])
                     if 'EGB' in line:
-                        all_values[ligand]['E%s' % type]=float(line.split()[1])
-                        all_errors[ligand]['E%s' % type]=float(line.split()[2])
+                        all_values[ligand]['EGB']=float(line.split()[1])
+                        all_errors[ligand]['EGB']=float(line.split()[2])
                     if 'ESURF' in line:
                         all_values[ligand]['E_surf']=float(line.split()[1])
                         all_errors[ligand]['E_surf']=float(line.split()[2])
-            all_values[ligand]['eel/E%s' % type]=all_values[ligand]['eel_inter']+all_values[ligand]['EGB']
-            all_errors[ligand]['eel/E%s' % type]=numpy.sqrt(all_errors[ligand]['eel_inter']**2 + all_errors[ligand]['EGB']**2)
+            all_values[ligand]['eel/EGB']=all_values[ligand]['eel_inter']+all_values[ligand]['EGB']
+            all_errors[ligand]['eel/EGB']=numpy.sqrt(all_errors[ligand]['eel_inter']**2 + all_errors[ligand]['EGB']**2)
         states=['ligcpx', 'ligsolv'] # cpx - solv = strain
         components=dict()
         for ligandstate in states:
@@ -579,14 +574,14 @@ self.leapdir, self.ligand_name, prefix)
         ligands=all_values.keys()
         sorted_ligands=sorted(ligands, key=lambda x: all_values[x]['MMGB'])
         ohandle=open('%s/sorted_results.tbl' % dir, 'w')
-        formatkeyorder=['name  MM%s+str' % type, 'MM{0}  strain  vdW  eel_inter eel/E{0} E{0}  E_surf  E_lig'.format(type)] 
+        formatkeyorder=['name  MMGB+str', 'MMGB  strain  vdW  eel_inter  eel/EGB  EGB  E_surf  E_lig'] 
         entry=''.join(['%s\t' % x for x in formatkeyorder])
         entry=''.join([ entry, '\n'])
         ohandle.write(entry)
         print entry
-        keyorder=['MM%s+str' % type, 'MM%s' % type, 'strain', 'vdW', 'eel_inter', 'eel/E%s' % type, 'E%s' % type , 'E_surf',  'E_lig'] 
+        keyorder=['MMGB+str', 'MMGB', 'strain', 'vdW', 'eel_inter', 'eel/EGB', 'EGB' , 'E_surf',  'E_lig'] 
         for ligand in sorted_ligands:
-            all_values[ligand]['MM%s+str' % type]=all_values[ligand]['MM%s' % type]+all_values[ligand]['strain']
+            all_values[ligand]['MMGB+str']=all_values[ligand]['MMGB']+all_values[ligand]['strain']
             name='%s\t\t' % ligand
             entry=''.join(['%0.2f\t' % round(float(all_values[ligand][x]), 2) for x in keyorder])
             entry=''.join([name, entry, '\n'])
