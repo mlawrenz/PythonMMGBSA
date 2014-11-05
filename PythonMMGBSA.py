@@ -524,7 +524,7 @@ self.leapdir, self.ligand_name, prefix)
             type='PB'
             nonpolar='ENPOLAR'
         else:
-            type='PB'
+            type='GB'
             nonpolar='ESURF'
         all_errors=['MM%s' % type, 'strain', 'vdW', 'eel_inter', 'eel/E%s' % type, 'E%s' % type, nonpolar, 'E_lig']
         all_values=dict()
