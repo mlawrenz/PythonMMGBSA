@@ -517,9 +517,11 @@ self.leapdir, self.ligand_name, prefix)
         dir=self.gbdir
         if self.pb==True:
             type='PB'
+            nonpolar='ENPOLAR'
         else:
             type='PB'
-        all_errors=['MM%s' % type, 'strain', 'vdW', 'eel_inter', 'eel/E%s' % type, 'E%s' % type, 'E_surf', 'E_lig']
+            nonpolar=nonpolar
+        all_errors=['MM%s' % type, 'strain', 'vdW', 'eel_inter', 'eel/E%s' % type, 'E%s' % type, nonpolar, 'E_lig']
         all_values=dict()
         all_errors=dict()
         files=glob.glob('%s/*-cpx-*FINAL*' % dir)
@@ -550,8 +552,8 @@ self.leapdir, self.ligand_name, prefix)
                         all_values[ligand]['E%s' % type]=float(line.split()[1])
                         all_errors[ligand]['E%s' % type]=float(line.split()[2])
                     if 'ESURF' in line:
-                        all_values[ligand]['E_surf']=float(line.split()[1])
-                        all_errors[ligand]['E_surf']=float(line.split()[2])
+                        all_values[ligand][nonpolar]=float(line.split()[1])
+                        all_errors[ligand][nonpolar]=float(line.split()[2])
             all_values[ligand]['eel/E%s' % type]=all_values[ligand]['eel_inter']+all_values[ligand]['E%s' % type]
             all_errors[ligand]['eel/E%s' % type]=numpy.sqrt(all_errors[ligand]['eel_inter']**2 + all_errors[ligand]['E%s' % type]**2)
         states=['ligcpx', 'ligsolv'] # cpx - solv = strain
@@ -584,7 +586,7 @@ self.leapdir, self.ligand_name, prefix)
         entry=''.join([ entry, '\n'])
         ohandle.write(entry)
         print entry
-        keyorder=['MM%s+str' % type, 'MM%s' % type, 'strain', 'vdW', 'eel_inter', 'eel/E%s' % type, 'E%s' % type , 'E_surf',  'E_lig'] 
+        keyorder=['MM%s+str' % type, 'MM%s' % type, 'strain', 'vdW', 'eel_inter', 'eel/E%s' % type, 'E%s' % type , nonpolar,  'E_lig'] 
         for ligand in sorted_ligands:
             all_values[ligand]['MM%s+str' % type]=all_values[ligand]['MM%s' % type]+all_values[ligand]['strain']
             name='%s\t\t' % ligand
