@@ -112,9 +112,10 @@ MD, for processing with MMGB scores'''
         if self.pb==True:
             print "USING PB"
             # WITH RADII FROM GB=1 MODEL"
+            self.gbmodel=int(gbmodel)
         else:
+            self.gbmodel=int(gbmodel)
             print "USING MMGB=%s MODEL" % self.gbmodel
-        self.gbmodel=int(gbmodel)
         self.radii=get_pbbond_radii(int(gbmodel))
         print "Using gb%s with radii %s" % (self.gbmodel, self.radii)
         self.jobname=jobname
