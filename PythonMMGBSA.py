@@ -107,6 +107,7 @@ class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
     def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, pb=False, gbmodel=1, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, gpu=False, verbose=False):
+        self.ff='ff03.r1'
         self.pb=pb
         if self.pb==True:
             print "USING PB"
@@ -115,6 +116,7 @@ MD, for processing with MMGB scores'''
             print "USING MMGB=%s MODEL" % self.gbmodel
         self.gbmodel=int(gbmodel)
         self.radii=get_pbbond_radii(int(gbmodel))
+        print "Using gb%s with radii %s" % (self.gbmodel, self.radii)
         self.jobname=jobname
         self.verbose=verbose
         self.restraint_k=restraint_k
@@ -295,7 +297,8 @@ MD, for processing with MMGB scores'''
         print "RUNNING LEAP FOR COMPLEX--------------"
         frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
         prefix='cpx'
-        amber_file_formatter.write_leap(self.leapdir, prefix, self.ligand_name, self.radii, frcmodfile, self.amberligfile, self.protfile, complex=True, gbmin=self.gbmin)
+        amber_file_formatter.write_leap(self.leapdir, prefix, self.ligand_name, self.ff, self.radii, frcmodfile, self.amberligfile, self.protfile, complex=True, gbmin=self.gbmin)
+
         command='%s/bin/tleap -f %s/%s-%s-leaprc' % (os.environ['AMBERHOME'],
 self.leapdir, self.ligand_name, prefix)
         output, err=run_linux_process(command)
@@ -415,7 +418,8 @@ self.leapdir, self.ligand_name, prefix)
             # rebuild ligand topology 
             frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
             leap_prefix='ligresolv'
-            amber_file_formatter.write_leap(dir=self.leapdir, prefix=leap_prefix, ligand_name=self.ligand_name, radii=self.radii, frcmodfile=frcmodfile, newligfile=minligand, complex=False, gbmin=False)
+            print "FOR PB RADII %s" % self.radii
+            amber_file_formatter.write_leap(dir=self.leapdir, prefix=leap_prefix, ligand_name=self.ligand_name, ff=self.ff, radii=self.radii, frcmodfile=frcmodfile, newligfile=minligand, complex=False, gbmin=False)
             command='{0}/bin/tleap -f {1}/{2}-{3}-leaprc'.format(os.environ['AMBERHOME'], self.leapdir, self.ligand_name, leap_prefix)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix=leap_prefix, type='leap')

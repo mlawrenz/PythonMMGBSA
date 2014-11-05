@@ -8,11 +8,11 @@ import glob
 import os
 from os.path import split
 
-def write_leap(dir, prefix, ligand_name, radii, frcmodfile, newligfile, protfile=None, complex=True, gbmin=False):
+def write_leap(dir, prefix, ligand_name, ff, radii, frcmodfile, newligfile, protfile=None, complex=True, gbmin=False):
         fhandle=open('{0}/{1}-{2}-leaprc'.format(dir, ligand_name, prefix), 'w')
         # write headers common to all
         fhandle.write('''\
-source leaprc.ff14SB
+source leaprc.{5}
 source leaprc.gaff
 loadAmberParams frcmod.ionsjc_tip3p
 
@@ -31,7 +31,7 @@ saveAmberParm prot {4}/{3}-protein.top {4}/{3}-protein.crd
 
 
 saveAmberParm complex {4}/{3}-complex.top {4}/{3}-complex.crd
-'''.format(newligfile,protfile, radii, ligand_name, dir))
+'''.format(newligfile,protfile, radii, ligand_name, dir, ff))
             if gbmin==False:
                 fhandle.write('''\
 solvateOct complex TIP3PBOX 14.0
