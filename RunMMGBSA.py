@@ -24,6 +24,7 @@ group.add_argument('-drms','--drms',dest='drms',  help='max rmsd of energy gradi
 group.add_argument('-maxcyc','--maxcycles',dest='maxcycles',  help='min maxcycles', default=50000)
 group.add_argument('-im', action="store_true", dest="gbmin", help="using flag -im will run implicit GB solvent instead of explicit solvent simulations")
 group.add_argument('-gpu', action="store_true", dest="gpu", help="using flag -p will run a GPU MD simulation", default=False)
+group.add_argument('-pb', action="store_true", dest="pb", help="using flag will use PB to compute free energies", default=False)
 # options specific for md
 group = parser.add_argument_group('Options that turn on MD')
 group.add_argument('-md', action="store_true", dest="md", help="using flag -m will run a MD simulation")
@@ -31,7 +32,7 @@ group.add_argument('-mdsteps','--mdsteps',dest='mdsteps',  help='MD simulation s
 
 
 def main(args):
-    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps, gpu=args.gpu)
+    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, pbs=args.pb, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps, gpu=args.gpu)
     mol.run_antechamber()
     mol.run_leap()
     mol.run_cpx_simulation() 
@@ -42,7 +43,7 @@ def main(args):
 
 def time_main(args):
     print "timer turned on!"
-    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps, gpu=args.gpu)
+    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, pb=args.pbd, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps, gpu=args.gpu)
     start=time.time()
     mol.run_antechamber()
     end=time.time()
