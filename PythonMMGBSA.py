@@ -106,17 +106,21 @@ def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
 class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
-    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, gpu=False, verbose=False):
+    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, pb=False, gbmodel=1, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, gpu=False, verbose=False):
+        self.pb=pb
+        if self.pb==True:
+            print "USING RADII FROM GB=1 MODEL"
+        else:
+            print "USING MMGB=%s MODEL" % self.gbmodel
+        self.gbmodel=int(gbmodel)
+        self.radii=get_pbbond_radii(int(gbmodel))
         self.jobname=jobname
         self.verbose=verbose
         self.restraint_k=restraint_k
         print "RESTRAINT FORCE %s kcal/mol*A2" % restraint_k
-        self.gbmodel=int(gbmodel)
-        self.radii=get_pbbond_radii(int(gbmodel))
         self.gbmin=gbmin
         print "--------------------------------------"
         print "SYSTEM SET UP-------------------------"
-        print "USING MMGB=%s MODEL" % self.gbmodel
         self.protfile='%s/%s' % (os.getcwd(), protfile)
         self.ligfile='%s/%s' % (os.getcwd(), ligfile)
         command="more %s | awk '{if (NF==9) {print $8}}' | head -1" % self.ligfile
@@ -134,14 +138,26 @@ MD, for processing with MMGB scores'''
         self.mdsteps=mdsteps
         if self.md==True:
             if gbmin==True:
-                self.gbdir='%s/%s-implicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
+                if self.pb==True:
+                    self.gbdir='%s/%s-implicit-pb-md' % (os.getcwd(), self.jobname)
+                else:
+                    self.gbdir='%s/%s-implicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
             else:
-                self.gbdir='%s/%s-explicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
+                if self.pb==True:
+                    self.gbdir='%s/%s-explicit-pb-md' % (os.getcwd(), self.jobname)
+                else:
+                    self.gbdir='%s/%s-explicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
         else:
             if gbmin==True:
-                self.gbdir='%s/%s-implicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
+                if self.pb==True:
+                    self.gbdir='%s/%s-implicit-pb-min' % (os.getcwd(), self.jobname)
+                else:
+                    self.gbdir='%s/%s-implicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
             else:
-                self.gbdir='%s/%s-explicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
+                if self.pb==True:
+                    self.gbdir='%s/%s-explicit-pb-min' % (os.getcwd(), self.jobname)
+                else:
+                    self.gbdir='%s/%s-explicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
         if not os.path.exists(self.gbdir):
             os.mkdir(self.gbdir)
         #store minimized complex
@@ -418,8 +434,12 @@ self.leapdir, self.ligand_name, prefix)
 
     def mmgbsa_guts(self, prefix, start, finish, solvcomplex, complex, traj, interval=1, protein=None, ligand=None):
         # should be in gbdir here
-        inputfile='%s-mmgb.in' % prefix
-        amber_file_formatter.write_mmgbsa_input(inputfile, self.gbmodel, start, interval, finish)
+        if self.pb==True:
+            inputfile='%s-mmpb.in' % prefix
+            amber_file_formatter.write_mmpbsa_input(inputfile, start, interval, finish)
+        else:
+            inputfile='%s-mmgb.in' % prefix
+            amber_file_formatter.write_mmgbsa_input(inputfile, self.gbmodel, start, interval, finish)
         # use MMGBSA.py in Amber14 to run MMGB free energy difference calcs for complex
         if protein!=None and ligand!=None:
             print "--------------------------------------"

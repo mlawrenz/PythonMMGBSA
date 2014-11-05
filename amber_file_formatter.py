@@ -134,6 +134,23 @@ run GB
  /'''.format( start, interval, finish, model))
     fhandle.close()
 
+def write_mmpbsa_input(filename, start, interval, finish=100000000):
+    # script will redice final frame to total frames if really high
+    fhandle=open(filename, 'w')
+    fhandle.write('''\
+run PB 
+&general
+ startframe={0}, interval={1}, endframe={2},
+ keep_files=0,
+ /
+&pb
+ istrng=0.1, exdi=80, indi=1.0,
+ inp=1, fillratio=4, scale=2.0, 
+ radiopt=0,
+ /'''.format( start, interval, finish))
+    fhandle.close()
+
+
 def write_ptraj_strip(filename, inconf, outconf):
     filetypes=['mol2', 'rst', 'crd', 'pdb']
     mapper=dict()
