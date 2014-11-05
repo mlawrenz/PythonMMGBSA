@@ -581,7 +581,7 @@ self.leapdir, self.ligand_name, prefix)
         ligands=all_values.keys()
         sorted_ligands=sorted(ligands, key=lambda x: all_values[x]['MM%s' % type])
         ohandle=open('%s/sorted_results.tbl' % dir, 'w')
-        formatkeyorder=['name  MM%s+str' % type, 'MM{0}  strain  vdW  eel_inter eel/E{0} E{0}  E_surf  E_lig'.format(type)] 
+        formatkeyorder=['name  MM%s+str' % type, 'MM{0}  strain  vdW  eel_inter eel/E{0} E{0}  {1}  E_lig'.format(type, nonpolar)] 
         entry=''.join(['%s\t' % x for x in formatkeyorder])
         entry=''.join([ entry, '\n'])
         ohandle.write(entry)
