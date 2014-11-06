@@ -106,7 +106,7 @@ def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
 class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
-    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, pb=False, gbmodel=1, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, gpu=False, verbose=False):
+    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, pb=False, gbmodel=1, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, gpu=False, usedir=None, verbose=False):
         self.ff='ff03.r1'
         self.pb=pb
         if self.pb==True:
@@ -140,28 +140,33 @@ MD, for processing with MMGB scores'''
         self.md=md
         self.gpu=gpu
         self.mdsteps=mdsteps
-        if self.md==True:
-            if gbmin==True:
-                if self.pb==True:
-                    self.gbdir='%s/%s-implicit-pb-md' % (os.getcwd(), self.jobname)
-                else:
-                    self.gbdir='%s/%s-implicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
-            else:
-                if self.pb==True:
-                    self.gbdir='%s/%s-explicit-pb-md' % (os.getcwd(), self.jobname)
-                else:
-                    self.gbdir='%s/%s-explicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
+        import pdb
+        pdb.set_trace()
+        if usedir!=None:
+            self.gbdir=usedir
         else:
-            if gbmin==True:
-                if self.pb==True:
-                    self.gbdir='%s/%s-implicit-pb-min' % (os.getcwd(), self.jobname)
+            if self.md==True:
+                if gbmin==True:
+                    if self.pb==True:
+                        self.gbdir='%s/%s-implicit-pb-md' % (os.getcwd(), self.jobname)
+                    else:
+                        self.gbdir='%s/%s-implicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
                 else:
-                    self.gbdir='%s/%s-implicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
+                    if self.pb==True:
+                        self.gbdir='%s/%s-explicit-pb-md' % (os.getcwd(), self.jobname)
+                    else:
+                        self.gbdir='%s/%s-explicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
             else:
-                if self.pb==True:
-                    self.gbdir='%s/%s-explicit-pb-min' % (os.getcwd(), self.jobname)
+                if gbmin==True:
+                    if self.pb==True:
+                        self.gbdir='%s/%s-implicit-pb-min' % (os.getcwd(), self.jobname)
+                    else:
+                        self.gbdir='%s/%s-implicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
                 else:
-                    self.gbdir='%s/%s-explicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
+                    if self.pb==True:
+                        self.gbdir='%s/%s-explicit-pb-min' % (os.getcwd(), self.jobname)
+                    else:
+                        self.gbdir='%s/%s-explicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
         if not os.path.exists(self.gbdir):
             os.mkdir(self.gbdir)
         #store minimized complex
@@ -443,24 +448,27 @@ self.leapdir, self.ligand_name, prefix)
         if self.pb==True:
             inputfile='%s-mmpb.in' % prefix
             amber_file_formatter.write_mmpbsa_input(inputfile, start, interval, finish)
+            type='PB'
         else:
             inputfile='%s-mmgb.in' % prefix
             amber_file_formatter.write_mmgbsa_input(inputfile, self.gbmodel, start, interval, finish)
+            type='GB'
         # use MMGBSA.py in Amber14 to run MMGB free energy difference calcs for complex
         if protein!=None and ligand!=None:
             print "--------------------------------------"
             print "RUNNING COMPLEX MMGBSA CALC-----------"
             if self.gbmin==True:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -rp {5} -lp {6} -y {7}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, complex, protein, ligand, traj)
+                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MM{8}SA.dat -cp {4} -rp {5} -lp {6} -y {7}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, complex, protein, ligand, traj, type)
             else:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} -cp {5} -rp {6} -lp {7} -y {8}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, solvcomplex, complex, protein, ligand, traj)
+                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MM{9}SA.dat -sp {4} -cp {5} -rp {6} -lp {7} -y {8}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, solvcomplex, complex, protein, ligand, traj, type)
+
         else:
             print "--------------------------------------"
             print "RUNNING LIGAND MMGBSA CALC------------"
             if self.gbmin==True:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -y {5}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, complex, traj)
+                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MM{6}SA.dat -cp {4} -y {5}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, complex, traj, type)
             else:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} -cp {5} -y {6}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, solvcomplex, complex, traj)
+                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MM{7}SA.dat -sp {4} -cp {5} -y {6}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, solvcomplex, complex, traj, type)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix, type='MMGBSA')
         return
@@ -529,7 +537,7 @@ self.leapdir, self.ligand_name, prefix)
         all_errors=['MM%s' % type, 'strain', 'vdW', 'eel_inter', 'eel/E%s' % type, 'E%s' % type, nonpolar, 'E_lig']
         all_values=dict()
         all_errors=dict()
-        files=glob.glob('%s/*-cpx-*FINAL*' % dir)
+        files=glob.glob('%s/*-cpx-*FINAL_MM%sSA*' % (dir, type))
         allcomponents=['']
         for file in files:
             base=os.path.basename(file)
@@ -564,7 +572,7 @@ self.leapdir, self.ligand_name, prefix)
         states=['ligcpx', 'ligsolv'] # cpx - solv = strain
         components=dict()
         for ligandstate in states:
-            files=glob.glob('%s/*-%s-*FINAL*' % (dir, ligandstate))
+            files=glob.glob('%s/*-%s-*FINAL_MM%sSA*' % (dir, ligandstate, type))
             values=[]
             errors=[]
             components[ligandstate]=dict()
