@@ -6,8 +6,10 @@ import PythonMMGBSA
 
 # Set up the MM/PBSA parser here. It clutters up the MMPBSA_App to do it there
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-parser = ArgumentParser(epilog='''This program will calculate binding free
-                        energies using end-state free energy methods.''', formatter_class=ArgumentDefaultsHelpFormatter)
+parser = ArgumentParser(epilog='''This program will minimize ligand
+conformations in AMBER and compute the single point MMGBSA energy (intended for
+evaluating ligand conformational energies in AMBER FF for correction to MMGBSA
+binding free energy predictions.''', formatter_class=ArgumentDefaultsHelpFormatter)
 
 #always need these user inputs
 group = parser.add_argument_group('Necessary user input',)
