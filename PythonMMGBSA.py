@@ -117,7 +117,7 @@ MD, for processing with MMGB scores'''
         print "--------------------------------------"
         print "SYSTEM SET UP-------------------------"
         print "USING MMGB=%s MODEL" % self.gbmodel
-        self.protfile='%s/%s' % (os.getcwd(), protfile)
+        self.protfile='%s/%s' % (os.getcwd(), protfile.split('./')[1])
         self.ligfile='%s/%s' % (os.getcwd(), ligfile)
         command="more %s | awk '{if (NF==9) {print $8}}' | head -1" % self.ligfile
         output=subprocess.check_output(command, shell=True)
