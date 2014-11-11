@@ -8,16 +8,16 @@ import glob
 import os
 from os.path import split
 
-def write_leap(dir, prefix, ligand_name, radii, frcmodfile, newligfile, protfile=None, complex=True, gbmin=False):
+def write_leap(dir, prefix, ligand_name, ff, radii, frcmodfile, newligfile, protfile=None, complex=True, gbmin=False):
         fhandle=open('{0}/{1}-{2}-leaprc'.format(dir, ligand_name, prefix), 'w')
         # write headers common to all
         fhandle.write('''\
-source leaprc.ff14SB
+source leaprc.{0}
 source leaprc.gaff
 loadAmberParams frcmod.ionsjc_tip3p
 
-loadAmberParams %s
-''' % frcmodfile)
+loadAmberParams {1}
+'''.format(ff, frcmodfile))
         if complex==True:
             # write complex info 
             fhandle.write('''\
@@ -136,6 +136,7 @@ run GB
 
 def write_mmpbsa_input(filename, start, interval, finish=100000000):
     # script will redice final frame to total frames if really high
+    #inp=2, cavity_surften=0.0378, cavity_offset=-0.5692,
     fhandle=open(filename, 'w')
     fhandle.write('''\
 run PB 
@@ -145,8 +146,10 @@ run PB
  /
 &pb
  istrng=0.1, exdi=80, indi=1.0,
- inp=1, fillratio=4, scale=2.0, 
- radiopt=0,
+ inp=1, 
+ fillratio=4, scale=2.0, 
+ linit=1000, prbrad=1.4,
+ radiopt=1,
  /'''.format( start, interval, finish))
     fhandle.close()
 
