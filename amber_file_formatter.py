@@ -8,7 +8,8 @@ import glob
 import os
 from os.path import split
 
-def write_leap(dir, prefix, ligand_name, radii, frcmodfile, newligfile, protfile=None, complex=True, gbmin=False):
+def write_leap(dir, prefix, ligand_name, radii, frcmodfile, newligfile,
+protfile=None, complex=True, gbmin=False):
         fhandle=open('{0}/{1}-{2}-leaprc'.format(dir, ligand_name, prefix), 'w')
         # write headers common to all
         fhandle.write('''\

@@ -101,7 +101,27 @@ def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
     os.chdir(origdir)
     return mask
     
-        
+
+def get_simulation_commands(prefix, prmtop, inpcrd, outdir, gpu=False, restrain=False, nproc=16, mdrun=False):
+    if gpu==True:
+        print "USING GPU FOR MD"
+        os.system('export CUDA_VISIBLE_DEVICES=0')
+        program='pmemd.cuda'
+    else:
+        program='mpirun -n %s pmemd.MPI' % nproc
+    if restrain==True:
+        if mdrun==True:
+            command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -ref {4} -r {1}/{2}.rst -x {1}/{2}.mdcrd'.format(program, outdir, prefix, prmtop, inpcrd)
+        else:
+            command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -ref {4} -r {1}/{2}.rst'.format(program, outdir, prefix, prmtop, inpcrd)
+    else:
+        if mdrun==True:
+            command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -r {1}/{2}.rst -x {1}/{2}.mdcrd'.format(program, outdir, prefix, prmtop, inpcrd)
+        else:
+            command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -r {1}/{2}.rst'.format(program, outdir, prefix, prmtop, inpcrd)
+    return command
+
+
 # Class for Building Amber Parametrized Molecule
 class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
@@ -178,25 +198,6 @@ MD, for processing with MMGB scores'''
             print "LIGAND CHARGE IS %s" % ligcharge
             self.ligcharge=int(ligcharge)
  
-    def get_simulation_commands(self, prefix, prmtop, inpcrd, restrain=False, nproc=16, mdrun=False):
-        if self.gpu==True:
-            print "USING GPU FOR MD"
-            os.system('export CUDA_VISIBLE_DEVICES=0')
-            program='pmemd.cuda'
-        else:
-            program='mpirun -n %s pmemd.MPI' % nproc
-        if restrain==True:
-            if mdrun==True:
-                command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -ref {4} -r {1}/{2}.rst -x {1}/{2}.mdcrd'.format(program, self.gbdir, prefix, prmtop, inpcrd)
-            else:
-                command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -ref {4} -r {1}/{2}.rst'.format(program, self.gbdir, prefix, prmtop, inpcrd)
-        else:
-            if mdrun==True:
-                command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -r {1}/{2}.rst -x {1}/{2}.mdcrd'.format(program, self.gbdir, prefix, prmtop, inpcrd)
-            else:
-                command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -r {1}/{2}.rst'.format(program, self.gbdir, prefix, prmtop, inpcrd)
-        return command
-
     def check_output(self, output, err, prefix, type):
         types=['leap', 'ante', 'ptraj', 'md', 'MMGBSA']
         outdirs=[self.leapdir, self.antdir, self.gbdir, self.gbdir, self.gbdir]
@@ -310,7 +311,7 @@ self.leapdir, self.ligand_name, prefix)
             else:
                 print "RUNNING MINIMIZATION WITH EXPLICIT----"
                 amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k,maxcycles=self.maxcycles, drms=self.drms)
-            command=self.get_simulation_commands(prefix, prmtop, inpcrd, restrain, nproc)
+            command=get_simulation_commands(prefix, prmtop, inpcrd, self.gbdir, self.gpu, restrain, nproc)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix=prefix, type='md')
         else:
@@ -321,8 +322,7 @@ self.leapdir, self.ligand_name, prefix)
             else:
                 print "RUNNING MD SIMULATION WITH EXPLICIT---"
                 amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps)
-            command=self.get_simulation_commands(prefix, prmtop, inpcrd, restrain, nproc, mdrun=True)
-
+            command=get_simulation_commands(prefix, prmtop, inpcrd, self.gbdir, self.gpu, restrain, nproc, mdrun=True)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix='md', type='md')
         return
