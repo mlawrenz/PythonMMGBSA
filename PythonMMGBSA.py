@@ -107,15 +107,18 @@ class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
     def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, pb=False, gbmodel=1, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, gpu=False, usedir=None, verbose=False):
-        self.ff='ff03.r1'
         self.pb=pb
         if self.pb==True:
             print "USING PB"
             # WITH RADII FROM GB=1 MODEL"
+            self.ff='ff03.r1'
             self.gbmodel=int(gbmodel)
+            print "USING FF %s" % self.ff
         else:
+            self.ff='ff14SB'
             self.gbmodel=int(gbmodel)
             print "USING MMGB=%s MODEL" % self.gbmodel
+            print "USING FF %s" % self.ff
         self.radii=get_pbbond_radii(int(gbmodel))
         print "Using gb%s with radii %s" % (self.gbmodel, self.radii)
         self.jobname=jobname
@@ -140,10 +143,8 @@ MD, for processing with MMGB scores'''
         self.md=md
         self.gpu=gpu
         self.mdsteps=mdsteps
-        import pdb
-        pdb.set_trace()
         if usedir!=None:
-            self.gbdir=usedir
+            self.gbdir='%s/%s' % (os.getcwd(), usedir)
         else:
             if self.md==True:
                 if gbmin==True:
@@ -456,7 +457,7 @@ self.leapdir, self.ligand_name, prefix)
         # use MMGBSA.py in Amber14 to run MMGB free energy difference calcs for complex
         if protein!=None and ligand!=None:
             print "--------------------------------------"
-            print "RUNNING COMPLEX MMGBSA CALC-----------"
+            print "RUNNING COMPLEX MM%sSA CALC-----------" % type
             if self.gbmin==True:
                 command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MM{8}SA.dat -cp {4} -rp {5} -lp {6} -y {7}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, complex, protein, ligand, traj, type)
             else:
@@ -464,7 +465,7 @@ self.leapdir, self.ligand_name, prefix)
 
         else:
             print "--------------------------------------"
-            print "RUNNING LIGAND MMGBSA CALC------------"
+            print "RUNNING LIGAND MM%sSA CALC------------" % type
             if self.gbmin==True:
                 command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MM{6}SA.dat -cp {4} -y {5}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, complex, traj, type)
             else:
