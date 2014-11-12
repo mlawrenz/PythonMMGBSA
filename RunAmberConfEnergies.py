@@ -176,7 +176,7 @@ def main(args):
         command='sed "0,/GENER/d" < {0}/ENERGY.dat >> {1}-ENERGIES.OUT'.format(tmpdir, ligandname)
         output, err=PythonMMGBSA.run_linux_process(command)
         shutil.rmtree(tmpdir)
-    shutil.rmtrr(moldir)
+    shutil.rmtree(moldir)
 
 
 if __name__=="__main__":	
