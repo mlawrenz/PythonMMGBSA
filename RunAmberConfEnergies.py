@@ -117,15 +117,7 @@ def main(args):
     radii=PythonMMGBSA.get_pbbond_radii(gbmodel)
     charge_method='bcc'
     origdir=os.getcwd()
-    # RUN ANTECHAMBER IF YOU NEED TO
     antdir='{0}-antechamber-output/'.format(ligandname)
-    if not os.path.exists(antdir):
-        os.mkdir(antdir)
-    if os.path.exists('%s/%s.prep' % (antdir, ligandname)):
-        print "already have antechamber files for %s" % ligandname
-    else:
-        print "running antechamber in %s" % antdir
-        antechamber(antdir, ligfile, ligcharge)
     tmpdir='%s-tmp' % ligandname
     if gbmin==True:
         prmtop='%s/%s.top' % (tmpdir, ligandname)
@@ -134,6 +126,14 @@ def main(args):
         prmtop='%s/%s.solv.top' % (tmpdir, ligandname)
         inpcrd='%s/%s.solv.crd' % (tmpdir, ligandname)
     for ligfile in glob.glob('%s/*mol2' % moldir):
+        # RUN ANTECHAMBER IF YOU NEED TO
+        if not os.path.exists(antdir):
+            os.mkdir(antdir)
+        if os.path.exists('%s/%s.prep' % (antdir, ligandname)):
+            print "already have antechamber files for %s" % ligandname
+        else:
+            print "running antechamber in %s" % antdir
+            antechamber(antdir, ligfile, ligcharge)
         if not os.path.exists(tmpdir):
             os.mkdir(tmpdir)
         # get PDB though
