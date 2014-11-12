@@ -53,10 +53,9 @@ def parse_multimol2(outdir, multimol2):
             
 
 
-def antechamber(antdir, ligfile, ligcharge):
+def antechamber(antdir, ligfile, ligcharge, ligandname):
     origdir=os.getcwd()
     os.chdir(antdir)
-    ligandname=os.path.basename(ligfile).split('.mol2')[0]
     amberligfile='%s.amber.mol2' % ligandname
     charge_method='bcc'
     command='%s/bin/antechamber -i %s/%s -fi mol2 -o %s.amber.pdb -fo pdb' % (os.environ['AMBERHOME'], origdir, ligfile, ligandname)
@@ -133,7 +132,7 @@ def main(args):
             print "already have antechamber files for %s" % ligandname
         else:
             print "running antechamber in %s" % antdir
-            antechamber(antdir, ligfile, ligcharge)
+            antechamber(antdir, ligfile, ligcharge, ligandname)
         if not os.path.exists(tmpdir):
             os.mkdir(tmpdir)
         # get PDB though
