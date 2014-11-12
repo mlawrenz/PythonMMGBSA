@@ -1,4 +1,5 @@
 import os, time
+import glob
 import shutil
 import sys
 import amber_file_formatter
@@ -35,7 +36,8 @@ def parse_multimol2(outdir, multimol2):
             continue
         if new==True and title==True:
             name=line.rstrip('\n')
-            print "writing new mol2 for %s" % name
+            if count==0:
+                print "writing new mol2 for %s" % name
             ohandle=open('%s/%s-%s.mol2' % (outdir, name, count), 'w')
             ohandle.write(header)
             ohandle.write(line)
@@ -104,18 +106,15 @@ def main(args):
     ligcharge=args.ligcharge
     gbmin=args.gbmin
     gbmodel=args.gbmodel
-    ligandname=os.path.basename(ligfile).split('.mol2')[0]
+    ligandname=os.path.basename(ligfile).split('.mol2')[0].split('_')[0]
     moldir='%s-tmp-molecules' % ligandname
     if not os.path.exists(moldir):
         os.mkdir(moldir)
     if args.multi==True:
-        parse_multimol2(ligfile, moldir)
+        parse_multimol2(moldir, ligfile)
     radii=PythonMMGBSA.get_pbbond_radii(gbmodel)
     charge_method='bcc'
     origdir=os.getcwd()
-    tmpdir='%s-tmp' % ligandname
-    if not os.path.exists(tmpdir):
-        os.mkdir(tmpdir)
     # RUN ANTECHAMBER IF YOU NEED TO
     antdir='{0}-antechamber-output/'.format(ligandname)
     if not os.path.exists(antdir):
@@ -123,7 +122,9 @@ def main(args):
     if os.path.exists('%s/%s.prep' % (antdir, ligandname)):
         print "already have antechamber files for %s" % ligandname
     else:
+        print "running antechamber in %s" % antdir
         antechamber(antdir, ligfile, ligcharge)
+    tmpdir='%s-tmp' % ligandname
     if gbmin==True:
         prmtop='%s/%s.top' % (tmpdir, ligandname)
         inpcrd='%s/%s.crd' % (tmpdir, ligandname)
@@ -131,6 +132,8 @@ def main(args):
         prmtop='%s/%s.solv.top' % (tmpdir, ligandname)
         inpcrd='%s/%s.solv.crd' % (tmpdir, ligandname)
     for ligfile in glob.glob('%s/*mol2' % moldir):
+        if not os.path.exists(tmpdir):
+            os.mkdir(tmpdir)
         # get PDB though
         command='%s/bin/antechamber -i %s -fi mol2 -o %s/%s.amber.pdb -fo pdb' % (os.environ['AMBERHOME'], ligfile, tmpdir, ligandname)
         output, err=PythonMMGBSA.run_linux_process(command)
@@ -153,6 +156,7 @@ def main(args):
             prefix='min'
         amber_file_formatter.write_simulation_input(md=False, dir=tmpdir, prefix=prefix,  gbmin=gbmin, gbmodel=gbmodel, drms=0.001)
         command=PythonMMGBSA.get_simulation_commands(prefix, prmtop, inpcrd, tmpdir, gpu=False, restrain=False, nproc=16, mdrun=False)
+        print "Running Minimization for %s" % ligfile
         output, err=PythonMMGBSA.run_linux_process(command)
         if 'rror' in err or 'rror' in output:
             print "ERRORS"
@@ -172,6 +176,7 @@ def main(args):
         command='sed "0,/GENER/d" < {0}/ENERGY.dat >> {1}-ENERGIES.OUT'.format(tmpdir, ligandname)
         output, err=PythonMMGBSA.run_linux_process(command)
         shutil.rmtree(tmpdir)
+    shutil.rmtrr(moldir)
 
 
 if __name__=="__main__":	
