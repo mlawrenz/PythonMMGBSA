@@ -18,6 +18,7 @@ group.add_argument('-mol2','--ligfile',dest='ligfile',  help='ligand MOL2 file, 
 group.add_argument('-multi', action="store_true", dest="multi", help="using flag -multi signifies the mol2 file is a multimol2 file and will process all molecules", default=False)
 group.add_argument('-netc','--netcharge',dest='ligcharge',  help='total net charge on ligand')
 group.add_argument('-im', action="store_true", dest="gbmin", help="using flag -im will run implicit GB solvent instead of explicit solvent simulations", default=False)
+group.add_argument('-nproc','--nproc',dest='nproc',  help='N processors to run minimization with', default=16)
 group.add_argument('-gb','--gbmodel',dest='gbmodel',  help='MMGB model version in AMBER', default=1)
 
 def parse_multimol2(outdir, multimol2):
@@ -108,6 +109,7 @@ def main(args):
     gbmodel=args.gbmodel
     ligandname=os.path.basename(ligfile).split('.mol2')[0].split('_')[0]
     moldir='%s-tmp-molecules' % ligandname
+    nproc=int(args.nproc)
     if not os.path.exists(moldir):
         os.mkdir(moldir)
     if args.multi==True:
@@ -155,7 +157,7 @@ def main(args):
         else:
             prefix='min'
         amber_file_formatter.write_simulation_input(md=False, dir=tmpdir, prefix=prefix,  gbmin=gbmin, gbmodel=gbmodel, drms=0.001)
-        command=PythonMMGBSA.get_simulation_commands(prefix, prmtop, inpcrd, tmpdir, gpu=False, restrain=False, nproc=16, mdrun=False)
+        command=PythonMMGBSA.get_simulation_commands(prefix, prmtop, inpcrd, tmpdir, gpu=False, restrain=False, nproc=nproc, mdrun=False)
         print "Running Minimization for %s" % ligfile
         output, err=PythonMMGBSA.run_linux_process(command)
         if 'rror' in err or 'rror' in output:

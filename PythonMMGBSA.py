@@ -109,6 +109,7 @@ def get_simulation_commands(prefix, prmtop, inpcrd, outdir, gpu=False, restrain=
         program='pmemd.cuda'
     else:
         program='mpirun -n %s pmemd.MPI' % nproc
+        print "running on %s processors" % nproc
     if restrain==True:
         if mdrun==True:
             command='{0} -O -i {1}/{2}.in -o {1}/{2}.out -p {3} -c {4} -ref {4} -r {1}/{2}.rst -x {1}/{2}.mdcrd'.format(program, outdir, prefix, prmtop, inpcrd)
@@ -126,7 +127,8 @@ def get_simulation_commands(prefix, prmtop, inpcrd, outdir, gpu=False, restrain=
 class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
-    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, gpu=False, verbose=False):
+    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, nproc=16, gpu=False, verbose=False):
+        self.nproc=int(nproc)
         self.jobname=jobname
         self.verbose=verbose
         self.restraint_k=restraint_k
@@ -291,7 +293,7 @@ self.leapdir, self.ligand_name, prefix)
     def simulation_guts(self, prefix, prmtop, inpcrd, mdrun=False):
         # write simulation run input files
         # pass in prefix, prmtop, and inpcrd appropriate for gb vs. explicit
-        nproc=8
+        nproc=self.nproc
         if 'ligand' in prefix:
             restraint_atoms=None
             restrain=False
