@@ -105,7 +105,7 @@ def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
 def get_simulation_commands(prefix, prmtop, inpcrd, outdir, gpu=False, restrain=False, nproc=16, mdrun=False):
     if gpu==True:
         print "USING GPU FOR MD"
-        os.system('export CUDA_VISIBLE_DEVICES=0')
+        os.system('export CUDA_VISIBLE_DEVICES=0,1,2,3')
         program='pmemd.cuda'
     else:
         program='mpirun -n %s pmemd.MPI' % nproc
