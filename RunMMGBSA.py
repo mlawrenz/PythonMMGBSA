@@ -27,11 +27,12 @@ group.add_argument('-gpu', action="store_true", dest="gpu", help="using flag -p 
 # options specific for md
 group = parser.add_argument_group('Options that turn on MD')
 group.add_argument('-md', action="store_true", dest="md", help="using flag -m will run a MD simulation")
+group.add_argument('-nproc','--nproc',dest='nproc',  help='N processors to run minimization with', default=8)
 group.add_argument('-mdsteps','--mdsteps',dest='mdsteps',  help='MD simulation steps (2 fs)')
 
 
 def main(args):
-    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps, gpu=args.gpu)
+    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps, nproc=args.nproc, gpu=args.gpu)
     mol.run_antechamber()
     mol.run_leap()
     mol.run_cpx_simulation() 
@@ -42,7 +43,7 @@ def main(args):
 
 def time_main(args):
     print "timer turned on!"
-    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps, gpu=args.gpu)
+    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, prot_radius=args.prot_radius, ligrestraint=args.ligrestraint, maxcycles=args.maxcycles, drms=args.drms, gbmin=args.gbmin, md=args.md, mdsteps=args.mdsteps, nproc=args.nproc, gpu=args.gpu)
     start=time.time()
     mol.run_antechamber()
     end=time.time()
