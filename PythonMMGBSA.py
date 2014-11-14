@@ -181,7 +181,7 @@ MD, for processing with MMGB scores'''
     def get_simulation_commands(self, prefix, prmtop, inpcrd, restrain=False, nproc=16, mdrun=False):
         if self.gpu==True:
             print "USING GPU FOR MD"
-            os.system('export CUDA_VISIBLE_DEVICES=0')
+            os.system('export CUDA_VISIBLE_DEVICES=0,1,2,3')
             program='pmemd.cuda'
         else:
             program='mpirun -n %s pmemd.MPI' % nproc
