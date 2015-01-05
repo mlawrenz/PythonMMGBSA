@@ -29,8 +29,7 @@ group.add_argument('-gpu', action="store_true", dest="gpu", help="using flag -p 
 group = parser.add_argument_group('Options that turn on MD')
 group.add_argument('-md', action="store_true", dest="md", help="using flag -m will run a MD simulation")
 group.add_argument('-nproc','--nproc',dest='nproc',  help='N processors to rn MPI processes', default=8)
-group.add_argument('-mdsteps','--mdsteps',dest='mdsteps',  help='MD simulation
-steps (2 fs)', default=100000)
+group.add_argument('-mdsteps','--mdsteps',dest='mdsteps',  help='MD simulation steps (2 fs)', default=100000)
 
 
 def main(args):
