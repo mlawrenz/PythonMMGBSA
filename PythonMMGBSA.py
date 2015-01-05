@@ -14,7 +14,7 @@ from os.path import split
 # Helper Functions 
 
 def get_full_filepath(file):
-    base=os.path.basename(file))
+    base=os.path.basename(file)
     tmpdir=os.path.dirname(file).split('./')[1]
     full=os.getcwd()
     return '%s/%s' % (full, base)
