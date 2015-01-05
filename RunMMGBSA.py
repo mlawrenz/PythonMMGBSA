@@ -14,10 +14,10 @@ group = parser.add_argument_group('Necessary user input',)
 group.add_argument('-jname','--jobname',dest='jobname',  help='jobname: organize your files by labeling dirs for leap and mgbsa output with this name.')
 group.add_argument('-prot','--protfile',dest='protfile',  help='protein PDB file')
 group.add_argument('-mol2','--ligfile',dest='ligfile',  help='ligand MOL2 file, ****IMPORTANT:**** name residue MOL and ENSURE ligand is in binding pocket')
-
 # opions with defaults
-group.add_argument('-netc','--netcharge',dest='ligcharge',  help='total net charge on ligand', default=0)
 group = parser.add_argument_group('Options with defaults',)
+group.add_argument('-netc','--netcharge',dest='ligcharge',  help='total net charge on ligand', default=0)
+
 group.add_argument('-gb','--gbmodel',dest='gbmodel',  help='MMGB model version
 in AMBER', default=1)
 group.add_argument('-prad','--proteinrad',dest='prot_radius',  help='distance around ligand allowed to move in protein', default=0.1)
