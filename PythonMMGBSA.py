@@ -15,9 +15,13 @@ from os.path import split
 
 def get_full_filepath(file):
     base=os.path.basename(file)
-    tmpdir=os.path.dirname(file).split('./')[1]
+    tmpdir=os.path.dirname(file)
+    if './' in tmpdir:
+        subdir=tmpdir.split('./')[1]
+    else:
+        subdir=tmpdir
     full=os.getcwd()
-    return '%s/%s' % (full, base)
+    return '%s/%s/%s' % (full,subdir,  base)
 
 def get_pbbond_radii(model):
     if model==1:
