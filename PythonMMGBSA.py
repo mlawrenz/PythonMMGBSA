@@ -13,6 +13,12 @@ from os.path import split
 
 # Helper Functions 
 
+def get_full_filepath(file):
+    base=os.path.basename(file))
+    tmpdir=os.path.dirname(file).split('./')[1]
+    full=os.getcwd()
+    return '%s/%s' % (full, base)
+
 def get_pbbond_radii(model):
     if model==1:
         radii='mbondi'
@@ -139,8 +145,8 @@ MD, for processing with MMGB scores'''
         print "--------------------------------------"
         print "SYSTEM SET UP-------------------------"
         print "USING MMGB=%s MODEL" % self.gbmodel
-        self.protfile='%s/%s' % (os.getcwd(), protfile.split('./')[1])
-        self.ligfile='%s/%s' % (os.getcwd(), ligfile)
+        self.protfile=get_full_filepath(protfile)
+        self.ligfile=get_full_filepath(ligfile)
         command="more %s | awk '{if (NF==9) {print $8}}' | head -1" % self.ligfile
         output=subprocess.check_output(command, shell=True)
         output=output.rstrip('\n')
