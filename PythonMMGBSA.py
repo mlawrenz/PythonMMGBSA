@@ -390,7 +390,7 @@ self.leapdir, self.ligand_name, prefix)
         else:
             # rebuild ligand topology only if using explicit solvent
             # has to load in a mol2
-            minligand='%s/ligandonly.mol2' % self.gbdir
+            minligand='%s/ligand_in_cpx.mol2' % self.gbdir
             amber_file_formatter.write_ptraj_strip(filename, self.mincpx, minligand)
             command='cpptraj {0}/{1}-complex.solv.top {2}'.format(self.leapdir, self.ligand_name, filename)
             output, err=run_linux_process(command)
@@ -419,22 +419,30 @@ self.leapdir, self.ligand_name, prefix)
     def mmgbsa_guts(self, prefix, start, finish, solvcomplex, complex, traj, interval=1, protein=None, ligand=None):
         # should be in gbdir here
         inputfile='%s-mmgb.in' % prefix
+        if self.md==True:   
+            program='mpirun -n {0} {1}/bin/MMPBSA.py.MPI' % (self.nproc, os.environ['AMBERHOME'])
+        else:
+            program='%s/bin/MMPBSA.py' % os.environ['AMBERHOME']
         amber_file_formatter.write_mmgbsa_input(inputfile, self.gbmodel, start, interval, finish)
         # use MMGBSA.py in Amber14 to run MMGB free energy difference calcs for complex
         if protein!=None and ligand!=None:
             print "--------------------------------------"
             print "RUNNING COMPLEX MMGBSA CALC-----------"
             if self.gbmin==True:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -rp {5} -lp {6} -y {7}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, complex, protein, ligand, traj)
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} \
+                 -rp {5} -lp {6} -y {7}'.format(program, inputfile, self.ligand_name, prefix, complex, protein, ligand, traj)
             else:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} -cp {5} -rp {6} -lp {7} -y {8}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, solvcomplex, complex, protein, ligand, traj)
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} \
+                -cp {5} -rp {6} -lp {7} -y {8}'.format(program, inputfile, self.ligand_name, prefix, solvcomplex, complex, protein, ligand, traj)
         else:
             print "--------------------------------------"
             print "RUNNING LIGAND MMGBSA CALC------------"
             if self.gbmin==True:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -y {5}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, complex, traj)
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -y \
+{5}'.format(program, inputfile, self.ligand_name, prefix, complex, traj)
             else:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} -cp {5} -y {6}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, solvcomplex, complex, traj)
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} \
+                -cp {5} -y {6}'.format(program, inputfile, self.ligand_name, prefix, solvcomplex, complex, traj)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix, type='MMGBSA')
         return
