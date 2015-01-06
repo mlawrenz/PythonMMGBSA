@@ -420,9 +420,9 @@ self.leapdir, self.ligand_name, prefix)
         # should be in gbdir here
         inputfile='%s-mmgb.in' % prefix
         if self.md==True:   
-            program='mpirun -n {0} {1}/bin/MMPBSA.py.MPI' % (self.nproc, os.environ['AMBERHOME'])
+            program='mpirun -n {0} {1}/bin/MMPBSA.py.MPI'.format(self.nproc, os.environ['AMBERHOME'])
         else:
-            program='%s/bin/MMPBSA.py' % os.environ['AMBERHOME']
+            program='%s/bin/MMPBSA.py'.format(os.environ['AMBERHOME'])
         amber_file_formatter.write_mmgbsa_input(inputfile, self.gbmodel, start, interval, finish)
         # use MMGBSA.py in Amber14 to run MMGB free energy difference calcs for complex
         if protein!=None and ligand!=None:
@@ -437,6 +437,7 @@ self.leapdir, self.ligand_name, prefix)
         else:
             print "--------------------------------------"
             print "RUNNING LIGAND MMGBSA CALC------------"
+            program='%s/bin/MMPBSA.py'.format(os.environ['AMBERHOME'])
             if self.gbmin==True:
                 command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -y \
 {5}'.format(program, inputfile, self.ligand_name, prefix, complex, traj)
