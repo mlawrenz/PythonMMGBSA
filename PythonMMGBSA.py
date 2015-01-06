@@ -13,16 +13,6 @@ from os.path import split
 
 # Helper Functions 
 
-def get_full_filepath(file):
-    base=os.path.basename(file)
-    tmpdir=os.path.dirname(file)
-    if './' in tmpdir:
-        subdir=tmpdir.split('./')[1]
-    else:
-        subdir=tmpdir
-    full=os.getcwd()
-    return '%s/%s/%s' % (full,subdir,  base)
-
 def get_pbbond_radii(model):
     if model==1:
         radii='mbondi'
@@ -149,8 +139,8 @@ MD, for processing with MMGB scores'''
         print "--------------------------------------"
         print "SYSTEM SET UP-------------------------"
         print "USING MMGB=%s MODEL" % self.gbmodel
-        self.protfile=get_full_filepath(protfile)
-        self.ligfile=get_full_filepath(ligfile)
+        self.protfile=os.path.abspath(protfile)
+        self.ligfile=os.path.abspath(ligfile)
         command="more %s | awk '{if (NF==9) {print $8}}' | head -1" % self.ligfile
         output=subprocess.check_output(command, shell=True)
         output=output.rstrip('\n')
@@ -228,10 +218,6 @@ MD, for processing with MMGB scores'''
                 numpy.savetxt(logfile, output.split('\n'), fmt='%s')
         if 'Abort' in err or 'Abort' in output:
             errors=True
-        if self.verbose==True:
-            logfile='%s/%s-%s-%s.log' % (dir, self.ligand_name, prefix, type)
-            numpy.savetxt(logfile, output.split('\n'), fmt='%s')
-            print "OUTPUT SAVED IN %s" % logfile
         logfile='%s/%s-%s-%s.err' % (dir, self.ligand_name, prefix, type)
         if len(err)!=0:
             numpy.savetxt(logfile, err.split('\n'), fmt='%s')
@@ -240,11 +226,13 @@ MD, for processing with MMGB scores'''
             print "check %s" % logfile
             sys.exit()
         elif 'Parameter file was not saved' in output:
-            print "ERRORS: for %s" % type
+            print "ERRORS: parameter file was not saved for %s" % type
+            numpy.savetxt(logfile, output.split('\n'), fmt='%s')
             print "check %s" % logfile
             sys.exit()
         elif 'Could not open' in output:
-            print "ERRORS: for %s" % type
+            print "ERRORS:could not open file for %s" % type
+            numpy.savetxt(logfile, output.split('\n'), fmt='%s')
             print "check %s" % logfile
             sys.exit()
         else:
