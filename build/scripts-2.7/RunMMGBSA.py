@@ -13,11 +13,12 @@ parser.add_argument('-time', action="store_true", dest="time", help="using -time
 group = parser.add_argument_group('Necessary user input',)
 group.add_argument('-jname','--jobname',dest='jobname',  help='jobname: organize your files by labeling dirs for leap and mgbsa output with this name.')
 group.add_argument('-prot','--protfile',dest='protfile',  help='protein PDB file')
-group.add_argument('-mol2','--ligfile',dest='ligfile',  help='ligand MOL2 file, named MOL')
+group.add_argument('-mol2','--ligfile',dest='ligfile',  help='ligand MOL2 file, ****IMPORTANT:**** name residue MOL and ENSURE ligand is in binding pocket')
 group.add_argument('-netc','--netcharge',dest='ligcharge',  help='total net charge on ligand')
 # opions with defaults
 group = parser.add_argument_group('Options with defaults',)
-group.add_argument('-gb','--gbmodel',dest='gbmodel',  help='MMGB model version in AMBER', default=8)
+
+group.add_argument('-gb','--gbmodel',dest='gbmodel',  help='MMGB model version in AMBER', default=1)
 group.add_argument('-prad','--proteinrad',dest='prot_radius',  help='distance around ligand allowed to move in protein', default=0.1)
 group.add_argument('-ligr', action="store_true", dest="ligrestraint", help="using flag -ligr will restrain ligand atoms by k=5.0")
 group.add_argument('-drms','--drms',dest='drms',  help='max rmsd of energy gradient ', default=0.1)
@@ -27,8 +28,8 @@ group.add_argument('-gpu', action="store_true", dest="gpu", help="using flag -p 
 # options specific for md
 group = parser.add_argument_group('Options that turn on MD')
 group.add_argument('-md', action="store_true", dest="md", help="using flag -m will run a MD simulation")
-group.add_argument('-nproc','--nproc',dest='nproc',  help='N processors to run minimization with', default=8)
-group.add_argument('-mdsteps','--mdsteps',dest='mdsteps',  help='MD simulation steps (2 fs)')
+group.add_argument('-nproc','--nproc',dest='nproc',  help='N processors to run MPI processes', default=8)
+group.add_argument('-mdsteps','--mdsteps',dest='mdsteps',  help='MD simulation steps (2 fs)', default=100000)
 
 
 def main(args):

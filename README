@@ -1,0 +1,39 @@
+
+These programs require python >=v.2.7, and numpy >=v.1.8.1 and scipy >= v.0.14 libraries.
+
+I have installed a complete python package in the compchem directory on scone, which you can add to your path and use to install these scripts:
+export PATH=/common/compchem/anaconda/bin:$PATH
+
+Install with 
+PYTHONPATH/python setup.py install
+
+The main run script has a help menu callable by:
+RunMMGBSA.py -h
+
+This script runs through 6 main modules for the free energy calculation
+workflow:
+
+    mol=PythonMMGBSA.ambermol(args) # mol object is initialized with input
+    mol.run_antechamber() # generates ligand AMBER parameters 
+    mol.run_leap() # builds complete (solvated) complex topology file
+    mol.run_cpx_simulation() # runs minimization or MD simulation
+    mol.run_ligand_strain() # computes ligand strain energy
+    mol.run_mmgbsa(complex=True) # computes MMGBSA free energy of binding
+    mol.print_table() # prints results.tbl in the output directory 
+
+The script will print 3 directories per ligand, an antechamber-output (contains
+ligand-specific parameters, a leap-output (contains simulation topology and
+coordinate files), and the $jobname-directory with a prefix that you feed in,
+with appended details of the simulation, i.e. complex1-explicit-gb1-md (explicit solvent, gb=1 model in AMBER, and MD)
+
+The scripts requires a jobname, protein and ligand files (make sure these
+correspond to the predicted or experimental bound state and that the ligand
+residue is named MOL), and the netcharge of the ligand for the AM1-BCC charge
+calculation method. 
+
+The default option will run an explicit solvent minimization with gb=1 (see
+AMBER manual) used for the free energy calculation.
+
+An example submission script is 
+/common/compchem/mlawrenz/PythonMMGBSA/example-submission-script.sh
+

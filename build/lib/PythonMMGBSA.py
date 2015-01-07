@@ -104,7 +104,7 @@ def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
 
 def get_simulation_commands(prefix, prmtop, inpcrd, outdir, gpu=False, restrain=False, nproc=16, mdrun=False):
     if gpu==True:
-        print "USING GPU FOR MD, ASSUMING 4 DEVICES!!"
+        print "USING GPU FOR MD, ASSUMING 4 DEVICES!"
         os.system('export CUDA_VISIBLE_DEVICES=0,1,2,3')
         program='pmemd.cuda'
     else:
@@ -127,7 +127,8 @@ def get_simulation_commands(prefix, prmtop, inpcrd, outdir, gpu=False, restrain=
 class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
-    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, nproc=16, gpu=False, verbose=False):
+    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None,
+ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, restraint_k=10.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, nproc=16, gpu=False, verbose=False):
         self.nproc=int(nproc)
         self.jobname=jobname
         self.verbose=verbose
@@ -139,8 +140,8 @@ MD, for processing with MMGB scores'''
         print "--------------------------------------"
         print "SYSTEM SET UP-------------------------"
         print "USING MMGB=%s MODEL" % self.gbmodel
-        self.protfile='%s/%s' % (os.getcwd(), protfile.split('./')[1])
-        self.ligfile='%s/%s' % (os.getcwd(), ligfile)
+        self.protfile=os.path.abspath(protfile)
+        self.ligfile=os.path.abspath(ligfile)
         command="more %s | awk '{if (NF==9) {print $8}}' | head -1" % self.ligfile
         output=subprocess.check_output(command, shell=True)
         output=output.rstrip('\n')
@@ -218,10 +219,6 @@ MD, for processing with MMGB scores'''
                 numpy.savetxt(logfile, output.split('\n'), fmt='%s')
         if 'Abort' in err or 'Abort' in output:
             errors=True
-        if self.verbose==True:
-            logfile='%s/%s-%s-%s.log' % (dir, self.ligand_name, prefix, type)
-            numpy.savetxt(logfile, output.split('\n'), fmt='%s')
-            print "OUTPUT SAVED IN %s" % logfile
         logfile='%s/%s-%s-%s.err' % (dir, self.ligand_name, prefix, type)
         if len(err)!=0:
             numpy.savetxt(logfile, err.split('\n'), fmt='%s')
@@ -230,11 +227,13 @@ MD, for processing with MMGB scores'''
             print "check %s" % logfile
             sys.exit()
         elif 'Parameter file was not saved' in output:
-            print "ERRORS: for %s" % type
+            print "ERRORS: parameter file was not saved for %s" % type
+            numpy.savetxt(logfile, output.split('\n'), fmt='%s')
             print "check %s" % logfile
             sys.exit()
         elif 'Could not open' in output:
-            print "ERRORS: for %s" % type
+            print "ERRORS:could not open file for %s" % type
+            numpy.savetxt(logfile, output.split('\n'), fmt='%s')
             print "check %s" % logfile
             sys.exit()
         else:
@@ -392,7 +391,7 @@ self.leapdir, self.ligand_name, prefix)
         else:
             # rebuild ligand topology only if using explicit solvent
             # has to load in a mol2
-            minligand='%s/ligandonly.mol2' % self.gbdir
+            minligand='%s/ligand_in_cpx.mol2' % self.gbdir
             amber_file_formatter.write_ptraj_strip(filename, self.mincpx, minligand)
             command='cpptraj {0}/{1}-complex.solv.top {2}'.format(self.leapdir, self.ligand_name, filename)
             output, err=run_linux_process(command)
@@ -421,22 +420,33 @@ self.leapdir, self.ligand_name, prefix)
     def mmgbsa_guts(self, prefix, start, finish, solvcomplex, complex, traj, interval=1, protein=None, ligand=None):
         # should be in gbdir here
         inputfile='%s-mmgb.in' % prefix
+        # use reduced number of processes so don't run out of memory
+        pb_processes=round(self.nproc/2.0)
+        if self.md==True:   
+            program='mpirun -n {0} {1}/bin/MMPBSA.py.MPI'.format(pb_processes, os.environ['AMBERHOME'])
+        else:
+            program='{0}/bin/MMPBSA.py'.format(os.environ['AMBERHOME'])
         amber_file_formatter.write_mmgbsa_input(inputfile, self.gbmodel, start, interval, finish)
         # use MMGBSA.py in Amber14 to run MMGB free energy difference calcs for complex
         if protein!=None and ligand!=None:
             print "--------------------------------------"
             print "RUNNING COMPLEX MMGBSA CALC-----------"
             if self.gbmin==True:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -rp {5} -lp {6} -y {7}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, complex, protein, ligand, traj)
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} \
+                 -rp {5} -lp {6} -y {7}'.format(program, inputfile, self.ligand_name, prefix, complex, protein, ligand, traj)
             else:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} -cp {5} -rp {6} -lp {7} -y {8}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, solvcomplex, complex, protein, ligand, traj)
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} \
+                -cp {5} -rp {6} -lp {7} -y {8}'.format(program, inputfile, self.ligand_name, prefix, solvcomplex, complex, protein, ligand, traj)
         else:
             print "--------------------------------------"
             print "RUNNING LIGAND MMGBSA CALC------------"
+            program='{0}/bin/MMPBSA.py'.format(os.environ['AMBERHOME'])
             if self.gbmin==True:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -y {5}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, complex, traj)
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -y \
+{5}'.format(program, inputfile, self.ligand_name, prefix, complex, traj)
             else:
-                command='{0}/bin/MMPBSA.py -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} -cp {5} -y {6}'.format(os.environ['AMBERHOME'], inputfile, self.ligand_name, prefix, solvcomplex, complex, traj)
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} \
+                -cp {5} -y {6}'.format(program, inputfile, self.ligand_name, prefix, solvcomplex, complex, traj)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix, type='MMGBSA')
         return
@@ -500,6 +510,9 @@ self.leapdir, self.ligand_name, prefix)
         all_values=dict()
         all_errors=dict()
         files=glob.glob('%s/*-cpx-*FINAL*' % dir)
+        if len(files) ==0:
+            print "MISSING MMPBSA OUTPUT"
+            sys.exit()
         allcomponents=['']
         for file in files:
             base=os.path.basename(file)
@@ -535,6 +548,9 @@ self.leapdir, self.ligand_name, prefix)
         components=dict()
         for ligandstate in states:
             files=glob.glob('%s/*-%s-*FINAL*' % (dir, ligandstate))
+            if len(files) ==0:
+                print "MISSING LIGAND STRAIN CALC"
+                sys.exit()
             values=[]
             errors=[]
             components[ligandstate]=dict()
@@ -555,7 +571,7 @@ self.leapdir, self.ligand_name, prefix)
             all_errors[ligand]['strain']=error=numpy.sqrt(components['ligcpx'][ligand]['err']**2+components['ligsolv'][ligand]['err']**2)
         ligands=all_values.keys()
         sorted_ligands=sorted(ligands, key=lambda x: all_values[x]['MMGB'])
-        ohandle=open('%s/sorted_results.tbl' % dir, 'w')
+        ohandle=open('%s/results.tbl' % dir, 'w')
         formatkeyorder=['name  MMGB+str', 'MMGB  strain  vdW  eel_inter  eel/EGB  EGB  E_surf  E_lig'] 
         entry=''.join(['%s\t' % x for x in formatkeyorder])
         entry=''.join([ entry, '\n'])
