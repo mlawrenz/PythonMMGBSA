@@ -104,7 +104,7 @@ def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
 
 def get_simulation_commands(prefix, prmtop, inpcrd, outdir, gpu=False, restrain=False, nproc=16, mdrun=False):
     if gpu==True:
-        print "USING GPU FOR MD, ASSUMING 4 DEVICES!!"
+        print "USING GPU FOR MD, ASSUMING 4 DEVICES!"
         os.system('export CUDA_VISIBLE_DEVICES=0,1,2,3')
         program='pmemd.cuda'
     else:
@@ -127,7 +127,8 @@ def get_simulation_commands(prefix, prmtop, inpcrd, outdir, gpu=False, restrain=
 class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
-    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, restraint_k=5.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, nproc=16, gpu=False, verbose=False):
+    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None,
+ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, restraint_k=10.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, nproc=16, gpu=False, verbose=False):
         self.nproc=int(nproc)
         self.jobname=jobname
         self.verbose=verbose
@@ -419,8 +420,10 @@ self.leapdir, self.ligand_name, prefix)
     def mmgbsa_guts(self, prefix, start, finish, solvcomplex, complex, traj, interval=1, protein=None, ligand=None):
         # should be in gbdir here
         inputfile='%s-mmgb.in' % prefix
+        # use reduced number of processes so don't run out of memory
+        pb_processes=round(self.nproc/2.0)
         if self.md==True:   
-            program='mpirun -n {0} {1}/bin/MMPBSA.py.MPI'.format(self.nproc, os.environ['AMBERHOME'])
+            program='mpirun -n {0} {1}/bin/MMPBSA.py.MPI'.format(pb_processes, os.environ['AMBERHOME'])
         else:
             program='{0}/bin/MMPBSA.py'.format(os.environ['AMBERHOME'])
         amber_file_formatter.write_mmgbsa_input(inputfile, self.gbmodel, start, interval, finish)
