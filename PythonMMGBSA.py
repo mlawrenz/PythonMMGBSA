@@ -571,7 +571,7 @@ self.leapdir, self.ligand_name, prefix)
             all_errors[ligand]['strain']=error=numpy.sqrt(components['ligcpx'][ligand]['err']**2+components['ligsolv'][ligand]['err']**2)
         ligands=all_values.keys()
         sorted_ligands=sorted(ligands, key=lambda x: all_values[x]['MMGB'])
-        ohandle=open('%s/sorted_results.tbl' % dir, 'w')
+        ohandle=open('%s/results.tbl' % dir, 'w')
         formatkeyorder=['name  MMGB+str', 'MMGB  strain  vdW  eel_inter  eel/EGB  EGB  E_surf  E_lig'] 
         entry=''.join(['%s\t' % x for x in formatkeyorder])
         entry=''.join([ entry, '\n'])
