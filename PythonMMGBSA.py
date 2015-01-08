@@ -1,4 +1,5 @@
 import sys
+import shutil
 import amber_file_formatter
 import subprocess
 from subprocess import PIPE
@@ -31,6 +32,8 @@ def run_linux_process(command):
     p.wait()
     output, err=p.communicate()
     return output, err
+
+    
 
 def amber_mask_reducer(testmask, comparemask):
     # hack to workaround ambmask stack underflow if you specify every residue
@@ -201,6 +204,19 @@ ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, r
             print "LIGAND CHARGE IS %s" % ligcharge
             self.ligcharge=int(ligcharge)
  
+    def ptraj_rst_to_pdb(self, inconf, topo, dir):
+        origdir=os.getcwd()
+        os.chdir(dir)
+        file=open('ptraj-pdb.in', 'w')
+        file.write('trajin %s\n' % inconf)
+        file.write('trajout %s.pdb pdb' % inconf.split('.rst')[0])
+        file.close()
+        command='cpptraj %s ptraj-pdb.in' % topo
+        output, err=run_linux_process(command)
+        prefix='ptraj'
+        self.check_output(output, err, prefix, type='ptraj')
+        return
+
     def check_output(self, output, err, prefix, type):
         types=['leap', 'ante', 'ptraj', 'md', 'MMGBSA']
         outdirs=[self.leapdir, self.antdir, self.gbdir, self.gbdir, self.gbdir]
@@ -376,7 +392,7 @@ self.leapdir, self.ligand_name, prefix)
         base=os.path.basename(self.mincpx)
         filename='%s/getligand.ptraj' % self.gbdir
         if self.gbmin==True:
-            minligand='%s/ligandonly.rst' % self.gbdir #rst for sim start
+            minligand='%s/ligand_in_cpx.rst' % self.gbdir #rst for sim start
             # ptraj file iteself in same dir as inconf and outconf
             # but calling it from one above
             amber_file_formatter.write_ptraj_strip(filename, self.mincpx,minligand)
@@ -388,6 +404,7 @@ self.leapdir, self.ligand_name, prefix)
             prefix='gbmin-ligand'
             inpcrd=minligand
             prmtop='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
+            self.ptraj_rst_to_pdb(minligand, prmtop, self.gbdir)
         else:
             # rebuild ligand topology only if using explicit solvent
             # has to load in a mol2
@@ -404,15 +421,16 @@ self.leapdir, self.ligand_name, prefix)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix=leap_prefix, type='leap')
             print "RAN LEAP for RESOLVATING LIGAND"
-            os.system('mv %s/%s-ligand.solv.crd %s/ligandonly.crd' % (self.leapdir, self.ligand_name, self.gbdir))
+            os.system('mv %s/%s-ligand.solv.crd %s/ligand_in_cpx.crd' % (self.leapdir, self.ligand_name, self.gbdir))
             #for running simulation
             prefix='min-ligand'
-            inpcrd='%s/ligandonly.crd' % self.gbdir
+            inpcrd='%s/ligand_in_cpx.crd' % self.gbdir
             prmtop='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
         # minimize ligand in solution (or with GB solvent)
         # see diff in complex energy and solvated energy
         self.simulation_guts(prefix, prmtop, inpcrd)
         print "MINIMIZED LIGAND"
+        self.ptraj_rst_to_pdb('%s.rst' % prefix, prmtop, self.gbdir)
         self.run_mmgbsa(complex=False)
         print "MMGB CALC FINISHED ON LIGAND"
         return
@@ -488,7 +506,7 @@ self.leapdir, self.ligand_name, prefix)
             if self.gbmin==True:
                 solvcomplex=None
                 complex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
-                initial_traj='ligandonly.rst' 
+                initial_traj='ligand_in_cpx.rst' 
                 final_traj='gbmin-ligand.rst' 
             else:
                 solvcomplex='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
@@ -503,6 +521,36 @@ self.leapdir, self.ligand_name, prefix)
             self.mmgbsa_guts(prefix, start, finish, solvcomplex, complex, final_traj, interval=1)
         os.chdir(origdir)
         return
+
+    def clean(self):
+        os.system('cp %s/*pdb %s' % (self.leapdir, self.gbdir))
+        os.system('cp %s/*-complex.solv* %s' % (self.leapdir, self.gbdir))
+        os.system('cp %s/*-ligand.solv* %s' % (self.leapdir, self.gbdir))
+        os.system('cp %s/*.amber.mol2 %s/' % (self.antdir, self.gbdir))
+        # convert all restart files into PDB files
+        if self.gbmin==True:
+            prmtop='%s/%s-complex.top' % (self.leapdir, self.ligand_name)
+        else:
+            prmtop='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
+        if os.path.exists(self.mincpx):
+            self.ptraj_rst_to_pdb(self.mincpx, prmtop, self.gbdir)
+        else:
+            print "MISSING MINIMIZED COMPLEX STRUCTURE: ", self.mincpx
+            sys.exit()
+        if self.md==True:
+            if os.path.exists('%s.rst' % mdprefix):
+                self.ptraj_rst_to_pdb('%s.rst' % mdprefix, prmtop, self.gbdir)
+            else:
+                print "MISSING MD COMPLEX STRUCTURE: ", self.mincpx
+                sys.exit()
+        shutil.rmtree(self.antdir)
+        shutil.rmtree(self.leapdir)
+        os.system('rm %s/*in' % self.gbdir)
+        os.system('rm %s/*rst' % self.gbdir)
+        os.system('rm %s/*out' % self.gbdir)
+        os.system('rm %s/*ptraj*' % self.gbdir)
+        print "FINISHED CLEANING: use -debug if you want to check intermediate files"
+        
 
     def print_table(self):
         dir=self.gbdir

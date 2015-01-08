@@ -8,6 +8,8 @@ parser = ArgumentParser(epilog='''This program will calculate binding free
 
 # for turning on timer
 parser.add_argument('-time', action="store_true", dest="time", help="using -time will turn on timing of actions")
+parser.add_argument('-debug', action="store_true", dest="debug", help="using -debug will keep all intermediate files")
+
 
 #always need these user inputs
 group = parser.add_argument_group('Necessary user input',)
@@ -41,6 +43,8 @@ def main(args):
     mol.run_ligand_strain()
     mol.run_mmgbsa(complex=True)
     mol.print_table()
+    if args.debug!=True:
+        mol.clean()
 
 
 def time_main(args):
@@ -68,6 +72,8 @@ def time_main(args):
     print "cpx mmgbsa ran in %s sec" % str(round(end-start, 2))
     start=time.time()
     mol.print_table()
+    if args.debug!=True:
+        mol.clean()
 
 
 if __name__=="__main__":	

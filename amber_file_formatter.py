@@ -32,12 +32,14 @@ saveAmberParm prot {4}/{3}-protein.top {4}/{3}-protein.crd
 
 
 saveAmberParm complex {4}/{3}-complex.top {4}/{3}-complex.crd
+savepdb complex {4}/{3}-complex.pdb
 '''.format(newligfile,protfile, radii, ligand_name, dir))
             if gbmin==False:
                 fhandle.write('''\
 solvateOct complex TIP3PBOX 14.0
 #addIons complex Na+ 0
 saveAmberParm complex {1}/{0}-complex.solv.top {1}/{0}-complex.solv.crd
+savepdb complex {1}/{0}-complex.solv.pdb
 quit'''.format(ligand_name, dir))
             else:
                 pass # don't solvate system
