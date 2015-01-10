@@ -9,7 +9,7 @@ import os
 from os.path import split
 
 def write_leap(dir, prefix, ligand_name, radii, frcmodfile, newligfile,
-protfile=None, complex=True, gbmin=False):
+protfile=None, complex=True, implicit=False):
         fhandle=open('{0}/{1}-{2}-leaprc'.format(dir, ligand_name, prefix), 'w')
         # write headers common to all
         fhandle.write('''\
@@ -34,7 +34,7 @@ saveAmberParm prot {4}/{3}-protein.top {4}/{3}-protein.crd
 saveAmberParm complex {4}/{3}-complex.top {4}/{3}-complex.crd
 savepdb complex {4}/{3}-complex.pdb
 '''.format(newligfile,protfile, radii, ligand_name, dir))
-            if gbmin==False:
+            if implicit==False:
                 fhandle.write('''\
 solvateOct complex TIP3PBOX 14.0
 #addIons complex Na+ 0
@@ -65,11 +65,11 @@ def add_restraints(fhandle, restraint_atoms, restraint_k=10.0):
   restraintmask = ":{0}", restraint_wt = {1},'''.format(restraint_atoms, restraint_k))
     return fhandle
 
-def write_simulation_input(md, dir, prefix, gbmodel=None, gbmin=False, restraint_atoms=None, restraint_k=10.0, maxcycles=50000, drms=0.1, steps=100000):
+def write_simulation_input(md, dir, prefix, gbmodel=None, implicit=False, restraint_atoms=None, restraint_k=10.0, maxcycles=50000, drms=0.1, steps=100000):
     filename='%s/%s.in' % (dir, prefix)
     fhandle=open(filename, 'w')
     if md==False:
-        if gbmin==False:
+        if implicit==False:
             fhandle.write('''\
 minimization
   &cntrl
@@ -80,7 +80,7 @@ minimization
   ntwx = 1000, ntwe = 0, ntpr = 1000,
   drms   = %s,
   cut = 10.0,''' % (maxcycles, drms))
-        if gbmin==True:
+        if implicit==True:
             fhandle=open(filename, 'w')
             fhandle.write('''\
 minimization
@@ -94,7 +94,7 @@ minimization
   drms   = %s,
   cut = 10.0,''' % (maxcycles, gbmodel, drms))
     else:
-        if gbmin==True:
+        if implicit==True:
             fhandle.write('''\
 nvt equilibration with Langevin therm, SHAKE Hbonds
   &cntrl
