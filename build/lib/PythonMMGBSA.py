@@ -130,19 +130,24 @@ def get_simulation_commands(prefix, prmtop, inpcrd, outdir, gpu=False, restrain=
 class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
-    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=1, restraint_k=10.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, nproc=8, gpu=False):
+    def __init__(self, jobname=None, protfile=None, ligfile=None, ligcharge=None, \
+implicit=False, gbmodel=1, md=False, mdsteps=100000, maxcycles=50000, drms=0.1, nproc=8, gpu=False, \
+prot_radius=None, restraint_k=10.0, ligrestraint=None):
         self.nproc=int(nproc)
         self.jobname=jobname
-        self.restraint_k=restraint_k
-        print "RESTRAINT FORCE %s kcal/mol*A2" % restraint_k
         self.gbmodel=int(gbmodel)
         self.radii=get_pbbond_radii(int(gbmodel))
-        self.gbmin=gbmin
-        print "--------------------------------------"
-        print "SYSTEM SET UP-------------------------"
-        print "USING MMGB=%s MODEL" % self.gbmodel
+        self.implicit=implicit
+        self.maxcycles=int(maxcycles)
+        self.drms=float(drms)
+        self.md=md
+        self.gpu=gpu
+        self.mdsteps=mdsteps
         self.protfile=os.path.abspath(protfile)
         self.ligfile=os.path.abspath(ligfile)
+        self.ligand_name=os.path.basename(ligfile).split('.mol2')[0]
+        print "--------------------------------------"
+        print "SYSTEM SET UP-------------------------"
         # check ligand file for resname MOL
         command="more %s | awk '{if (NF==9) {print $8}}' | head -1" % self.ligfile
         output=subprocess.check_output(command, shell=True)
@@ -150,60 +155,57 @@ MD, for processing with MMGB scores'''
         if output!='MOL':
             print "NEED TO NAME LIGAND \"MOL\""
             sys.exit()
-        self.ligand_name=os.path.basename(ligfile).split('.mol2')[0]
-        self.antdir='%s/%s-antechamber-output' % (os.getcwd(), self.ligand_name)
-        self.leapdir='%s/%s-leap-output' % (os.getcwd(), self.jobname)
-        self.amberligfile='%s/%s.amber.mol2' % (self.antdir, self.ligand_name)
-        self.md=md
-        self.gpu=gpu
-        self.mdsteps=mdsteps
-        if self.md==True:
-            if gbmin==True:
-                self.mdprefix='gbmd-cpx'
-                self.gbdir='%s/%s-implicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
-            else:
-                self.mdprefix='md-cpx'
-                self.gbdir='%s/%s-explicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
-        else:
-            if gbmin==True:
-                self.gbdir='%s/%s-implicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
-            else:
-                self.gbdir='%s/%s-explicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
-        if not os.path.exists(self.gbdir):
-            os.mkdir(self.gbdir)
-        #store minimized complex
-        if self.gbmin==True:
-            self.mincpx='%s/gbmin-cpx.rst' % self.gbdir
-        else:
-            self.mincpx='%s/min-cpx.rst' % self.gbdir
-        self.maxcycles=int(maxcycles)
-        self.drms=float(drms)
-        if not os.environ['AMBERHOME']:
-            print "AMBERHOME IS NOT SET"
-            sys.exit()
-        if not prot_radius:
-            print "NO PROTEIN RESTRAINTS USED"
-            self.prot_radius=None
-        else:
-            self.prot_radius=prot_radius
-            print "PROTEIN RESTRAINED AT RADIUS %s AROUND LIGAND" % self.prot_radius
-        if not ligrestraint:
-            self.ligrestraint=None
-            print "NO LIGAND RESTRAINTS USED"
-        else:
-            self.ligrestraint=True
-            print "RESTRAINING LIGAND ATOMS"
-        if not charge_method:
-            print "USING AM1-BCC CHARGE METHOD"
-            self.charge_method='bcc'
-        else: 
-            self.charge_method=charge_method
+        # check for ligand charge
         if not ligcharge:
             print "CONFIRM LIGAND CHARGE"
             sys.exit()
         else:
             print "LIGAND CHARGE IS %s" % ligcharge
             self.ligcharge=int(ligcharge)
+        self.charge_method='bcc'
+        print "USING AM1-BCC CHARGE METHOD FOR LIGAND"
+        print "USING MMGB=%s MODEL FOR MMGBSA CALC" % self.gbmodel
+        # set tmp directories and main output directory self.gbdir
+        self.antdir='%s/%s-antechamber-output' % (os.getcwd(), self.ligand_name)
+        self.leapdir='%s/%s-leap-output' % (os.getcwd(), self.jobname)
+        self.amberligfile='%s/%s.amber.mol2' % (self.antdir, self.ligand_name)
+        if self.md==True:
+            if implicit==True:
+                self.mdprefix='gbmd-cpx'
+                self.gbdir='%s/%s-implicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
+            else:
+                self.mdprefix='md-cpx'
+                self.gbdir='%s/%s-explicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
+        else:
+            if implicit==True:
+                self.gbdir='%s/%s-implicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
+            else:
+                self.gbdir='%s/%s-explicit-gb%s-min' % (os.getcwd(), self.jobname, self.gbmodel)
+        if not os.path.exists(self.gbdir):
+            os.mkdir(self.gbdir)
+        #store minimized complex
+        if self.implicit==True:
+            self.mincpx='%s/implicit-cpx.rst' % self.gbdir
+        else:
+            self.mincpx='%s/min-cpx.rst' % self.gbdir
+        if not os.environ['AMBERHOME']:
+            print "AMBERHOME IS NOT SET"
+            sys.exit()
+        # set restraints
+        if not prot_radius:
+            print "NO PROTEIN RESTRAINTS USED"
+            self.prot_radius=None
+        else:
+            self.prot_radius=prot_radius
+            print "PROTEIN RESTRAINED AT RADIUS %s AROUND LIGAND" % self.prot_radius
+        self.restraint_k=restraint_k
+        print "RESTRAINT FORCE %s kcal/mol*A2" % restraint_k
+        if not ligrestraint:
+            self.ligrestraint=None
+            print "NO LIGAND RESTRAINTS USED"
+        else:
+            self.ligrestraint=True
+            print "RESTRAINING LIGAND ATOMS"
  
     def ptraj_rst_to_pdb(self, inconf, topo, dir):
         origdir=os.getcwd()
@@ -297,7 +299,7 @@ MD, for processing with MMGB scores'''
         print "RUNNING LEAP FOR COMPLEX--------------"
         frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
         prefix='cpx'
-        amber_file_formatter.write_leap(self.leapdir, prefix, self.ligand_name, self.radii, frcmodfile, self.amberligfile, self.protfile, complex=True, gbmin=self.gbmin)
+        amber_file_formatter.write_leap(self.leapdir, prefix, self.ligand_name, self.radii, frcmodfile, self.amberligfile, self.protfile, complex=True, implicit=self.implicit)
         command='%s/bin/tleap -f %s/%s-%s-leaprc' % (os.environ['AMBERHOME'],
 self.leapdir, self.ligand_name, prefix)
         output, err=run_linux_process(command)
@@ -313,7 +315,7 @@ self.leapdir, self.ligand_name, prefix)
         if 'ligand' in prefix:
             restraint_atoms=None
             restrain=False
-            if self.gbmin==True:
+            if self.implicit==True:
                 nproc=2
         else:
             restraint_atoms=self.restraint_atoms
@@ -322,10 +324,10 @@ self.leapdir, self.ligand_name, prefix)
             else:
                 restrain=False
         if mdrun==False:
-            if self.gbmin==True:
+            if self.implicit==True:
                 print "--------------------------------------"
                 print "RUNNING MINIMIZATION WITH IMPLICIT----"
-                amber_file_formatter.write_simulation_input(md=False,dir=self.gbdir, prefix=prefix, gbmin=self.gbmin, gbmodel=self.gbmodel, restraint_k=self.restraint_k, restraint_atoms=restraint_atoms, maxcycles=self.maxcycles, drms=self.drms)
+                amber_file_formatter.write_simulation_input(md=False,dir=self.gbdir, prefix=prefix, implicit=self.implicit, gbmodel=self.gbmodel, restraint_k=self.restraint_k, restraint_atoms=restraint_atoms, maxcycles=self.maxcycles, drms=self.drms)
             else:
                 print "RUNNING MINIMIZATION WITH EXPLICIT----"
                 amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k,maxcycles=self.maxcycles, drms=self.drms)
@@ -334,9 +336,9 @@ self.leapdir, self.ligand_name, prefix)
             self.check_output(output, err, prefix=prefix, type='md')
         else:
             print "--------------------------------------"
-            if self.gbmin==True:
+            if self.implicit==True:
                 print "RUNNING MD SIMULATION WITH IMPLICIT----"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  gbmin=self.gbmin, gbmodel=self.gbmodel, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps)
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  implicit=self.implicit, gbmodel=self.gbmodel, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps)
             else:
                 print "RUNNING MD SIMULATION WITH EXPLICIT---"
                 amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps)
@@ -348,10 +350,10 @@ self.leapdir, self.ligand_name, prefix)
 
     def run_cpx_simulation(self):
         # set input variables and commands
-        if self.gbmin==True:
+        if self.implicit==True:
             prmtop='%s/%s-complex.top' % (self.leapdir, self.ligand_name)
             inpcrd='%s/%s-complex.crd' % (self.leapdir, self.ligand_name)
-            prefix='gbmin-cpx'
+            prefix='implicit-cpx'
         else:
             prefix='min-cpx'
             prmtop='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
@@ -388,7 +390,7 @@ self.leapdir, self.ligand_name, prefix)
             sys.exit()
         base=os.path.basename(self.mincpx)
         filename='%s/getligand.ptraj' % self.gbdir
-        if self.gbmin==True:
+        if self.implicit==True:
             minligand='%s/ligand_in_cpx.rst' % self.gbdir #rst for sim start
             # ptraj file iteself in same dir as inconf and outconf
             # but calling it from one above
@@ -398,7 +400,7 @@ self.leapdir, self.ligand_name, prefix)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix='strip-ligand', type='ptraj')
             #for running simulation
-            prefix='gbmin-ligand'
+            prefix='implicit-ligand'
             inpcrd=minligand
             prmtop='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
             self.ptraj_rst_to_pdb(minligand, prmtop, self.gbdir)
@@ -413,7 +415,7 @@ self.leapdir, self.ligand_name, prefix)
             # rebuild ligand topology 
             frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
             leap_prefix='ligresolv'
-            amber_file_formatter.write_leap(dir=self.leapdir, prefix=leap_prefix, ligand_name=self.ligand_name, radii=self.radii, frcmodfile=frcmodfile, newligfile=minligand, complex=False, gbmin=False)
+            amber_file_formatter.write_leap(dir=self.leapdir, prefix=leap_prefix, ligand_name=self.ligand_name, radii=self.radii, frcmodfile=frcmodfile, newligfile=minligand, complex=False, implicit=False)
             command='{0}/bin/tleap -f {1}/{2}-{3}-leaprc'.format(os.environ['AMBERHOME'], self.leapdir, self.ligand_name, leap_prefix)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix=leap_prefix, type='leap')
@@ -446,7 +448,7 @@ self.leapdir, self.ligand_name, prefix)
         if protein!=None and ligand!=None:
             print "--------------------------------------"
             print "RUNNING COMPLEX MMGBSA CALC-----------"
-            if self.gbmin==True:
+            if self.implicit==True:
                 command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} \
                  -rp {5} -lp {6} -y {7}'.format(program, inputfile, self.ligand_name, prefix, complex, protein, ligand, traj)
             else:
@@ -456,7 +458,7 @@ self.leapdir, self.ligand_name, prefix)
             print "--------------------------------------"
             print "RUNNING LIGAND MMGBSA CALC------------"
             program='{0}/bin/MMPBSA.py'.format(os.environ['AMBERHOME'])
-            if self.gbmin==True:
+            if self.implicit==True:
                 command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -y \
 {5}'.format(program, inputfile, self.ligand_name, prefix, complex, traj)
             else:
@@ -477,7 +479,7 @@ self.leapdir, self.ligand_name, prefix)
             interval=1
             if self.md==True:
                 finish=1000000000 # MMPBSA.py will reduce to total frames
-                if self.gbmin==True:
+                if self.implicit==True:
                     traj='gbmd-cpx.mdcrd' 
                     solvcomplex=None
                 else:
@@ -485,8 +487,8 @@ self.leapdir, self.ligand_name, prefix)
                     solvcomplex='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
             else:
                 finish=1
-                if self.gbmin==True:
-                    traj='gbmin-cpx.rst' 
+                if self.implicit==True:
+                    traj='implicit-cpx.rst' 
                     solvcomplex=None
                 else:
                     traj='min-cpx.rst' 
@@ -500,11 +502,11 @@ self.leapdir, self.ligand_name, prefix)
             start=0
             interval=1
             finish=1
-            if self.gbmin==True:
+            if self.implicit==True:
                 solvcomplex=None
                 complex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
                 initial_traj='ligand_in_cpx.rst' 
-                final_traj='gbmin-ligand.rst' 
+                final_traj='implicit-ligand.rst' 
             else:
                 solvcomplex='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
                 complex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
@@ -525,7 +527,7 @@ self.leapdir, self.ligand_name, prefix)
         os.system('cp %s/*-ligand.solv* %s' % (self.leapdir, self.gbdir))
         os.system('cp %s/*.amber.mol2 %s/' % (self.antdir, self.gbdir))
         # convert all restart files into PDB files
-        if self.gbmin==True:
+        if self.implicit==True:
             prmtop='%s/%s-complex.top' % (self.leapdir, self.ligand_name)
         else:
             prmtop='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
