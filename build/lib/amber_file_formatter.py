@@ -32,12 +32,14 @@ saveAmberParm prot {4}/{3}-protein.top {4}/{3}-protein.crd
 
 
 saveAmberParm complex {4}/{3}-complex.top {4}/{3}-complex.crd
+savepdb complex {4}/{3}-complex.pdb
 '''.format(newligfile,protfile, radii, ligand_name, dir))
             if gbmin==False:
                 fhandle.write('''\
 solvateOct complex TIP3PBOX 14.0
 #addIons complex Na+ 0
 saveAmberParm complex {1}/{0}-complex.solv.top {1}/{0}-complex.solv.crd
+savepdb complex {1}/{0}-complex.solv.pdb
 quit'''.format(ligand_name, dir))
             else:
                 pass # don't solvate system
@@ -57,13 +59,13 @@ def add_belly(fhandle, protein_belly):
   ibelly=1, bellymask = ":%s"''' % protein_belly)
     return fhandle
 
-def add_restraints(fhandle, restraint_atoms, restraint_k=5.0):
+def add_restraints(fhandle, restraint_atoms, restraint_k=10.0):
     fhandle.write('''\
   ntr = 1, 
   restraintmask = ":{0}", restraint_wt = {1},'''.format(restraint_atoms, restraint_k))
     return fhandle
 
-def write_simulation_input(md, dir, prefix, gbmodel=None, gbmin=False, restraint_atoms=None, restraint_k=5.0, maxcycles=50000, drms=0.1, steps=100000):
+def write_simulation_input(md, dir, prefix, gbmodel=None, gbmin=False, restraint_atoms=None, restraint_k=10.0, maxcycles=50000, drms=0.1, steps=100000):
     filename='%s/%s.in' % (dir, prefix)
     fhandle=open(filename, 'w')
     if md==False:

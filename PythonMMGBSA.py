@@ -130,11 +130,9 @@ def get_simulation_commands(prefix, prmtop, inpcrd, outdir, gpu=False, restrain=
 class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
-    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None,
-ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, restraint_k=10.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, nproc=16, gpu=False, verbose=False):
+    def __init__(self, jobname, protfile=None, ligfile=None, prot_radius=None, ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=1, restraint_k=10.0, md=False, mdsteps=50000, maxcycles=50000, drms=0.1, nproc=8, gpu=False):
         self.nproc=int(nproc)
         self.jobname=jobname
-        self.verbose=verbose
         self.restraint_k=restraint_k
         print "RESTRAINT FORCE %s kcal/mol*A2" % restraint_k
         self.gbmodel=int(gbmodel)
@@ -145,6 +143,7 @@ ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, r
         print "USING MMGB=%s MODEL" % self.gbmodel
         self.protfile=os.path.abspath(protfile)
         self.ligfile=os.path.abspath(ligfile)
+        # check ligand file for resname MOL
         command="more %s | awk '{if (NF==9) {print $8}}' | head -1" % self.ligfile
         output=subprocess.check_output(command, shell=True)
         output=output.rstrip('\n')
@@ -160,8 +159,10 @@ ligrestraint=None, charge_method=None, ligcharge=None, gbmin=False, gbmodel=5, r
         self.mdsteps=mdsteps
         if self.md==True:
             if gbmin==True:
+                self.mdprefix='gbmd-cpx'
                 self.gbdir='%s/%s-implicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
             else:
+                self.mdprefix='md-cpx'
                 self.gbdir='%s/%s-explicit-gb%s-md' % (os.getcwd(), self.jobname, self.gbmodel)
         else:
             if gbmin==True:
@@ -351,14 +352,10 @@ self.leapdir, self.ligand_name, prefix)
             prmtop='%s/%s-complex.top' % (self.leapdir, self.ligand_name)
             inpcrd='%s/%s-complex.crd' % (self.leapdir, self.ligand_name)
             prefix='gbmin-cpx'
-            if self.md==True:
-                mdprefix='gbmd-cpx'
         else:
             prefix='min-cpx'
             prmtop='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
             inpcrd='%s/%s-complex.solv.crd' % (self.leapdir, self.ligand_name)
-            if self.md==True:
-                mdprefix='md-cpx'
         if not os.path.exists(prmtop):
             print "MISSING TOPOLOGY FILE: %s" % prmtop 
             sys.exit()
@@ -379,7 +376,7 @@ self.leapdir, self.ligand_name, prefix)
                 print "minimization failed, no %s" % self.mincpx
                 sys.exit()
             inpcrd=self.mincpx
-            self.simulation_guts(mdprefix, prmtop, inpcrd, mdrun=True)
+            self.simulation_guts(self.mdprefix, prmtop, inpcrd, mdrun=True)
         return
 
     def run_ligand_strain(self):
@@ -511,7 +508,7 @@ self.leapdir, self.ligand_name, prefix)
             else:
                 solvcomplex='%s/%s-ligand.solv.top' % (self.leapdir, self.ligand_name)
                 complex='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
-                initial_traj='ligandonly.crd' 
+                initial_traj='ligand_in_cpx.crd' 
                 final_traj='min-ligand.rst' 
             # first get initial GB energy of ligand in complex
             prefix='ligcpx'
@@ -538,8 +535,8 @@ self.leapdir, self.ligand_name, prefix)
             print "MISSING MINIMIZED COMPLEX STRUCTURE: ", self.mincpx
             sys.exit()
         if self.md==True:
-            if os.path.exists('%s.rst' % mdprefix):
-                self.ptraj_rst_to_pdb('%s.rst' % mdprefix, prmtop, self.gbdir)
+            if os.path.exists('%s.rst' % self.mdprefix):
+                self.ptraj_rst_to_pdb('%s.rst' % self.mdprefix, prmtop, self.gbdir)
             else:
                 print "MISSING MD COMPLEX STRUCTURE: ", self.mincpx
                 sys.exit()

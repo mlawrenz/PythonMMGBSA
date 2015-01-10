@@ -1,14 +1,22 @@
 
-These programs require python >=v.2.7, and numpy >=v.1.8.1 and scipy >= v.0.14 libraries.
+This program will calculate binding free energies for protein-ligand complexes using 
+the end-state MMGBSA free energy method, and includes a ligand strain penalty.
 
-I have installed a complete python package in the compchem directory on scone, which you can add to your path and use to install these scripts:
-export PATH=/common/compchem/anaconda/bin:$PATH
+These programs require python >=v.2.7, and numpy >=v.1.8.1 and scipy >= v.0.14
+libraries, as well as the MMPBSA.py program suite from this paper:
 
-Install with 
-PYTHONPATH/python setup.py install
+Miller III, B. R., McGee Jr., T. D., Swails, J. M. Homeyer, N. Gohlke, H. and
+Roitberg, A. E. J. Chem. Theory Comput., 2012, 8 (9) pp 3314--3321
+
+To use the program you just need to set this python directoy in your path:
+export PATH=/common/compchem/anaconda/bin:$PATH 
+or 
+set path = ( /common/compchem/anaconda/bin/ $path)
+
 
 The main run script has a help menu callable by:
 RunMMGBSA.py -h
+
 
 This script runs through 6 main modules for the free energy calculation
 workflow:
@@ -20,6 +28,10 @@ workflow:
     mol.run_ligand_strain() # computes ligand strain energy
     mol.run_mmgbsa(complex=True) # computes MMGBSA free energy of binding
     mol.print_table() # prints results.tbl in the output directory 
+
+If any step fails, you can check the .err file for detailed error output. You
+can also skip any of these steps by copying RunMMGBSA.py and customizing it with commented 
+out steps. Each step does depend on standard names and formats for files.
 
 The script will print 3 directories per ligand, an antechamber-output (contains
 ligand-specific parameters, a leap-output (contains simulation topology and
@@ -34,6 +46,9 @@ calculation method.
 The default option will run an explicit solvent minimization with gb=1 (see
 AMBER manual) used for the free energy calculation.
 
+**The script does not automatically launch LSF jobs** 
+You must submit these yourself,
+with the required computing resources specified to LSF.
 An example submission script is 
 /common/compchem/mlawrenz/PythonMMGBSA/example-submission-script.sh
 

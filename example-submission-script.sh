@@ -12,25 +12,25 @@ ligfile=mol2-files/2683187.mol2
 protfile=pdb-files/pde10a_2683187_protonly.pdb
 
 # implicit minimization only
-python RunMMGBSA.py -time -jname test1 -prot \
+RunMMGBSA.py -time -jname test1 -prot \
 $protfile -im -prad 5.0 -netc 0 -mol2 \
 $ligfile  >& test1.log
 
 # explicit minimization only
-python RunMMGBSA.py -time -jname test2 -prot \
+RunMMGBSA.py -time -jname test2 -prot \
 $protfile -prad 5.0 -netc 0 -mol2 \
 $ligfile  >& test2.log
 
 
 # explicit MD, TIP3P water
 # default MD step # is 100000 (200 ps)
-python RunMMGBSA.py -time -jname test3 -prot \
+RunMMGBSA.py -time -jname test3 -prot \
 $protfile -prad 5.0 -netc 0 -mol2 $ligfile -md -nproc 8 -mdsteps 10000 >& test3.log
 
 
 # implicit MD (not actually faster in all cases)
 # default MD step # is 100000 (200 ps)
-python RunMMGBSA.py -time -jname test4 -prot \
+RunMMGBSA.py -time -jname test4 -prot \
 $protfile -prad 5.0 -netc 0 -mol2 $ligfile -md -nproc 8 -mdsteps 10000 -im >& test4.log
 
 
