@@ -7,10 +7,12 @@ parser = ArgumentParser(description='''
 Written by Morgan Lawrenz, 2014
 This program will calculate binding free energies for protein-ligand complexes using
 the end-state MMGBSA free energy method, and includes a ligand strain penalty.
-\n
+
 The program calls the python implementation of AMBER MMPBSA described in this paper:
 Miller III, B. R., McGee Jr., T. D., Swails, J. M. Homeyer, N. Gohlke, H. and 
 Roitberg, A. E. J. Chem. Theory Comput., 2012, 8 (9) pp 3314--3321 
+
+Source code and README file in /common/compchem/mlawrenz/PythonMMGBSA/.
 
 This script runs through 6 main modules for the workflow:
 
@@ -25,7 +27,7 @@ This script runs through 6 main modules for the workflow:
 
 You can customize this script by only calling select steps.''', epilog='''
 **The script does not automatically launch LSF jobs**
-/common/compchem/mlawrenz/PythonMMGBSA/example-submission-script.sh''', formatter_class=RawTextHelpFormatter)
+bsub -J mmgb -n nproc -q queue -R span[hosts=1] RunMMGBSA.py [ args ]''', formatter_class=RawTextHelpFormatter)
 
 
 
@@ -38,7 +40,7 @@ parser.add_argument('-keepfiles', action="store_true", dest="keepfiles", help="U
 group = parser.add_argument_group('Necessary user input:',)
 group.add_argument('-jname','--jobname',dest='jobname',  help='Label prefix for output directory.')
 group.add_argument('-prot','--protfile',dest='protfile',  help='Protein PDB file.')
-group.add_argument('-mol2','--ligfile',dest='ligfile',  help='Ligand MOL2 file.\
+group.add_argument('-mol2','--ligfile',dest='ligfile',  help='Ligand MOL2 file. \
 IMPORTANT: name ligand residue MOL and ensure ligand coordinates are the bound pose in the pocket of the separately provided protfile')
 group.add_argument('-netc','--netcharge',dest='ligcharge',  help='Total net charge on ligand.')
 

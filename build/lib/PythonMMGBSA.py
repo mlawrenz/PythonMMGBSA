@@ -399,7 +399,7 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
             # ptraj file iteself in same dir as inconf and outconf
             # but calling it from one above
             amber_file_formatter.write_ptraj_strip(filename, self.mincpx,minligand)
-            #extract ligand to get restart file directly for MMPBSA
+            #extract ligand to get restart file directly for MMGBSA
             command='cpptraj {0}/{1}-complex.top {2}'.format(self.leapdir, self.ligand_name, filename)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix='strip-ligand', type='ptraj')
@@ -453,20 +453,20 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
             print "--------------------------------------"
             print "RUNNING COMPLEX MMGBSA CALC-----------"
             if self.implicit==True:
-                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} \
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMGBSA.dat -cp {4} \
                  -rp {5} -lp {6} -y {7}'.format(program, inputfile, self.ligand_name, prefix, complex, protein, ligand, traj)
             else:
-                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} \
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMGBSA.dat -sp {4} \
                 -cp {5} -rp {6} -lp {7} -y {8}'.format(program, inputfile, self.ligand_name, prefix, solvcomplex, complex, protein, ligand, traj)
         else:
             print "--------------------------------------"
             print "RUNNING LIGAND MMGBSA CALC------------"
             program='{0}/bin/MMPBSA.py'.format(os.environ['AMBERHOME'])
             if self.implicit==True:
-                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -y \
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMGBSA.dat -cp {4} -y \
 {5}'.format(program, inputfile, self.ligand_name, prefix, complex, traj)
             else:
-                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} \
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMGBSA.dat -sp {4} \
                 -cp {5} -y {6}'.format(program, inputfile, self.ligand_name, prefix, solvcomplex, complex, traj)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix, type='MMGBSA')
@@ -562,7 +562,7 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
         all_errors=dict()
         files=glob.glob('%s/*-cpx-*FINAL*' % dir)
         if len(files) ==0:
-            print "MISSING MMPBSA OUTPUT"
+            print "MISSING MMGBSA OUTPUT"
             sys.exit()
         allcomponents=['']
         for file in files:

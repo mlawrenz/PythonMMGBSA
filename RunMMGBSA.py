@@ -27,6 +27,7 @@ This script runs through 6 main modules for the workflow:
 
 You can customize this script by only calling select steps.''', epilog='''
 **The script does not automatically launch LSF jobs**
+See /common/compchem/mlawrenz/PythonMMGBSA/example-submission-script.sh or
 bsub -J mmgb -n nproc -q queue -R span[hosts=1] RunMMGBSA.py [ args ]''', formatter_class=RawTextHelpFormatter)
 
 
