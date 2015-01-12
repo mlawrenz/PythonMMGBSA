@@ -1,10 +1,34 @@
 import os, time
 import PythonMMGBSA
 
-# Set up the MM/PBSA parser here. It clutters up the MMPBSA_App to do it there
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-parser = ArgumentParser(epilog='''This program will calculate binding free
-                        energies using end-state free energy methods.''', formatter_class=ArgumentDefaultsHelpFormatter)
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, RawTextHelpFormatter
+
+parser = ArgumentParser(description='''
+Written by Morgan Lawrenz, 2014
+This program will calculate binding free energies for protein-ligand complexes using
+the end-state MMGBSA free energy method, and includes a ligand strain penalty.
+\n
+The program calls the python implementation of AMBER MMPBSA described in this paper:
+Miller III, B. R., McGee Jr., T. D., Swails, J. M. Homeyer, N. Gohlke, H. and 
+Roitberg, A. E. J. Chem. Theory Comput., 2012, 8 (9) pp 3314--3321 
+
+This script runs through 6 main modules for the workflow:
+
+    mol=PythonMMGBSA.ambermol(args) ----> mol object is initialized with input
+    mol.run_antechamber() ----> generates ligand AMBER parameters
+    mol.run_leap() ----> builds complete (solvated) complex topology file
+    mol.run_cpx_simulation() ----> runs minimization or MD simulation
+    mol.run_ligand_strain() ---->  computes ligand strain energy
+    mol.run_mmgbsa(complex=True) ---->  computes MMGBSA free energy of binding
+    mol.print_table() ---->  prints results.tbl in the output directory
+    mol.clean() ----> removes all but final MMGB output and relevant structure files
+
+You can customize this script by only calling select steps.''', epilog='''
+**The script does not automatically launch LSF jobs**
+/common/compchem/mlawrenz/PythonMMGBSA/example-submission-script.sh''', formatter_class=RawTextHelpFormatter)
+
+
+
 
 # true/false options
 parser.add_argument('-time', action="store_true", dest="time", help="Using -time will turn on timing of actions.")
@@ -28,17 +52,22 @@ group.add_argument('-drms','--drms',dest='drms',  help='Max rmsd of energy gradi
 group.add_argument('-maxcyc','--maxcycles',dest='maxcycles',  help='Max cycles of minimization.', default=50000)
 group.add_argument('-im', action="store_true", dest="implicit", help="Using flag \
 -im will run implicit GB solvent: NOT necessarily faster for MD. Please benchmark before using implicit instead of explicit for MD.")
+group.add_argument('-mdseed','--mdseed',dest='mdseed',  help='MD seed for random number generator; default ensures unique seed per simulation.', default=-1)
 
 # options specific for md
 group = parser.add_argument_group('Options that pertain to MD:')
 group.add_argument('-md', action="store_true", dest="md", help="Using flag -m will run a MD simulation after minimization.")
 group.add_argument('-nproc','--nproc',dest='nproc',  help='Number of processors to run MPI processes.', default=8)
 group.add_argument('-mdsteps','--mdsteps',dest='mdsteps',  help='MD simulation time steps (1 step=2 fs).', default=100000)
-group.add_argument('-gpu', action="store_true", dest="gpu", help="Using flag -p will run a GPU MD simulation.", default=False)
+group.add_argument('-gpu', action="store_true", dest="gpu", help="Using flag -gpu will run a GPU MD simulation.", default=False)
+
 
 
 def main(args):
-    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, prot_radius=args.prot_radius, maxcycles=args.maxcycles, drms=args.drms, implicit=args.implicit, md=args.md, mdsteps=args.mdsteps, nproc=args.nproc, gpu=args.gpu)
+    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, \
+ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, \
+prot_radius=args.prot_radius, maxcycles=args.maxcycles, drms=args.drms, \
+implicit=args.implicit, md=args.md, mdsteps=args.mdsteps, mdseed=args.mdseed, nproc=args.nproc, gpu=args.gpu)
     mol.run_antechamber()
     mol.run_leap()
     mol.run_cpx_simulation() 
@@ -51,7 +80,10 @@ def main(args):
 
 def time_main(args):
     print "Timer turned on!"
-    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, prot_radius=args.prot_radius, maxcycles=args.maxcycles, drms=args.drms, implicit=args.implicit, md=args.md, mdsteps=args.mdsteps, nproc=args.nproc, gpu=args.gpu)
+    mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, \
+ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel,prot_radius=args.prot_radius,\
+ maxcycles=args.maxcycles, drms=args.drms, implicit=args.implicit, md=args.md, mdsteps=args.mdsteps, \
+mdseed=args.mdseed, nproc=args.nproc, gpu=args.gpu)
     start=time.time()
     mol.run_antechamber()
     end=time.time()
@@ -84,4 +116,5 @@ if __name__=="__main__":
         time_main(args)
     else:
         main(args)
+
 

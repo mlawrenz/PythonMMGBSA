@@ -65,7 +65,8 @@ def add_restraints(fhandle, restraint_atoms, restraint_k=10.0):
   restraintmask = ":{0}", restraint_wt = {1},'''.format(restraint_atoms, restraint_k))
     return fhandle
 
-def write_simulation_input(md, dir, prefix, gbmodel=None, implicit=False, restraint_atoms=None, restraint_k=10.0, maxcycles=50000, drms=0.1, steps=100000):
+def write_simulation_input(md, dir, prefix, gbmodel=None, implicit=False, restraint_atoms=None, \
+restraint_k=10.0, maxcycles=50000, drms=0.1, steps=100000, mdseed=-1):
     filename='%s/%s.in' % (dir, prefix)
     fhandle=open(filename, 'w')
     if md==False:
@@ -98,25 +99,25 @@ minimization
             fhandle.write('''\
 nvt equilibration with Langevin therm, SHAKE Hbonds
   &cntrl
-  imin = 0, ntx = 1, irest = 0, nstlim = %s,
-  ntt=3,  gamma_ln=1.0, temp0 = 298.15, tempi = 0, ig = -1,
+  imin = 0, ntx = 1, irest = 0, nstlim = {0},
+  ntt=3,  gamma_ln=1.0, temp0 = 298.15, tempi = 0, ig = {1},
   ntc = 2, ntf = 2, dt = 0.002,
   ntb = 0, ntp = 0, 
-  igb=%s,
+  igb={2},
   ntwx = 1000, ntwe = 0, ntwr = 1000, ntpr = 1000,
   cut = 10.0, 
-  nscm = 100,''' % (steps, gbmodel))
+  nscm = 100,'''.format(steps, mdseed, gbmodel))
         else:
             fhandle.write('''\
 nvt equilibration with Langevin therm, SHAKE Hbonds
   &cntrl
-  imin = 0, ntx = 1, irest = 0, nstlim = %s,
-  ntt=3, gamma_ln=1.0, temp0 = 298.15, tempi = 0, ig = -1,
+  imin = 0, ntx = 1, irest = 0, nstlim = {0},
+  ntt=3, gamma_ln=1.0, temp0 = 298.15, tempi = 0, ig = {1},
   ntc = 2, ntf = 2, dt = 0.002,
   ntb = 1, ntp = 0, 
   ntwx = 1000, ntwe = 0, ntwr = 1000, ntpr = 1000,
   cut = 10.0, iwrap = 1,
-  nscm = 100,''' % steps)
+  nscm = 100,'''.format(steps, mdseed))
     if restraint_atoms!=None:
         fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
     fhandle.write('/\n')

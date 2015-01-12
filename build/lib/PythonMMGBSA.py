@@ -131,7 +131,7 @@ class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
     def __init__(self, jobname=None, protfile=None, ligfile=None, ligcharge=None, \
-implicit=False, gbmodel=1, md=False, mdsteps=100000, maxcycles=50000, drms=0.1, nproc=8, gpu=False, \
+implicit=False, gbmodel=1, md=False, mdsteps=100000, mdseed=-1, maxcycles=50000, drms=0.1, nproc=8, gpu=False, \
 prot_radius=None, restraint_k=10.0, ligrestraint=None):
         self.nproc=int(nproc)
         self.jobname=jobname
@@ -143,6 +143,7 @@ prot_radius=None, restraint_k=10.0, ligrestraint=None):
         self.md=md
         self.gpu=gpu
         self.mdsteps=mdsteps
+        self.mdseed=mdseed
         self.protfile=os.path.abspath(protfile)
         self.ligfile=os.path.abspath(ligfile)
         self.ligand_name=os.path.basename(ligfile).split('.mol2')[0]
@@ -338,10 +339,13 @@ self.leapdir, self.ligand_name, prefix)
             print "--------------------------------------"
             if self.implicit==True:
                 print "RUNNING MD SIMULATION WITH IMPLICIT----"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  implicit=self.implicit, gbmodel=self.gbmodel, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps)
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  implicit=self.implicit, gbmodel=self.gbmodel,\
+restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
+
             else:
                 print "RUNNING MD SIMULATION WITH EXPLICIT---"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps)
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  restraint_atoms=restraint_atoms, \
+restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
             command=get_simulation_commands(prefix, prmtop, inpcrd, self.gbdir, self.gpu, restrain, nproc, mdrun=True)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix='md', type='md')
@@ -619,12 +623,9 @@ self.leapdir, self.ligand_name, prefix)
         ligands=all_values.keys()
         sorted_ligands=sorted(ligands, key=lambda x: all_values[x]['MMGB'])
         ohandle=open('%s/results.tbl' % dir, 'w')
-        #formatkeyorder=['name  MMGB+str', 'MMGB  strain  vdW  eel_inter  eel/EGB  EGB  E_surf  E_lig'] 
+        #format with 9 max column width
         entry='{0:<9} {1:<9} {2:<9} {3:<9} {4:<9} {5:<9} {6:<9} {7:<9} {8:<9} {9:<9}'.format('root', 'MMGB+str', 'MMGB', \
 'strain', 'vdW', 'eel_inter', 'eel/EGB', 'EGB' , 'E_surf',  'E_lig')
-        #formatkeyorder=['MMGB+str', 'MMGB', 'strain', 'vdW', 'eel_inter', 'eel/EGB', 'EGB' , 'E_surf',  'E_lig'] 
-        #entry='\t'.join(formatkeyorder)
-        #entry=''.join(['%s\t' % x for x in formatkeyorder])
         entry=''.join([ entry, '\n'])
         ohandle.write(entry)
         print entry
@@ -633,7 +634,6 @@ self.leapdir, self.ligand_name, prefix)
             all_values[ligand]['MMGB+str']=all_values[ligand]['MMGB']+all_values[ligand]['strain']
             name='%-10s' % ligand
             entry=''.join(['%-10.2f' % round(float(all_values[ligand][x]), 2) for x in keyorder])
-            #entry=''.join(['%0.2f\t' % round(float(all_values[ligand][x]), 2) for x in keyorder])
             entry=''.join([name, entry, '\n'])
             ohandle.write(entry)
             print entry

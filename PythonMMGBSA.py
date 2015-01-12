@@ -131,7 +131,7 @@ class ambermol:
     '''sets up molecular parameters and input files for min (single point calc) or
 MD, for processing with MMGB scores'''
     def __init__(self, jobname=None, protfile=None, ligfile=None, ligcharge=None, \
-implicit=False, gbmodel=1, md=False, mdsteps=100000, maxcycles=50000, drms=0.1, nproc=8, gpu=False, \
+implicit=False, gbmodel=1, md=False, mdsteps=100000, mdseed=-1, maxcycles=50000, drms=0.1, nproc=8, gpu=False, \
 prot_radius=None, restraint_k=10.0, ligrestraint=None):
         self.nproc=int(nproc)
         self.jobname=jobname
@@ -143,6 +143,7 @@ prot_radius=None, restraint_k=10.0, ligrestraint=None):
         self.md=md
         self.gpu=gpu
         self.mdsteps=mdsteps
+        self.mdseed=mdseed
         self.protfile=os.path.abspath(protfile)
         self.ligfile=os.path.abspath(ligfile)
         self.ligand_name=os.path.basename(ligfile).split('.mol2')[0]
@@ -338,10 +339,13 @@ self.leapdir, self.ligand_name, prefix)
             print "--------------------------------------"
             if self.implicit==True:
                 print "RUNNING MD SIMULATION WITH IMPLICIT----"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  implicit=self.implicit, gbmodel=self.gbmodel, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps)
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  implicit=self.implicit, gbmodel=self.gbmodel,\
+restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
+
             else:
                 print "RUNNING MD SIMULATION WITH EXPLICIT---"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps)
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  restraint_atoms=restraint_atoms, \
+restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
             command=get_simulation_commands(prefix, prmtop, inpcrd, self.gbdir, self.gpu, restrain, nproc, mdrun=True)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix='md', type='md')
@@ -395,7 +399,7 @@ self.leapdir, self.ligand_name, prefix)
             # ptraj file iteself in same dir as inconf and outconf
             # but calling it from one above
             amber_file_formatter.write_ptraj_strip(filename, self.mincpx,minligand)
-            #extract ligand to get restart file directly for MMPBSA
+            #extract ligand to get restart file directly for MMGBSA
             command='cpptraj {0}/{1}-complex.top {2}'.format(self.leapdir, self.ligand_name, filename)
             output, err=run_linux_process(command)
             self.check_output(output, err, prefix='strip-ligand', type='ptraj')
@@ -449,20 +453,20 @@ self.leapdir, self.ligand_name, prefix)
             print "--------------------------------------"
             print "RUNNING COMPLEX MMGBSA CALC-----------"
             if self.implicit==True:
-                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} \
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMGBSA.dat -cp {4} \
                  -rp {5} -lp {6} -y {7}'.format(program, inputfile, self.ligand_name, prefix, complex, protein, ligand, traj)
             else:
-                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} \
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMGBSA.dat -sp {4} \
                 -cp {5} -rp {6} -lp {7} -y {8}'.format(program, inputfile, self.ligand_name, prefix, solvcomplex, complex, protein, ligand, traj)
         else:
             print "--------------------------------------"
             print "RUNNING LIGAND MMGBSA CALC------------"
             program='{0}/bin/MMPBSA.py'.format(os.environ['AMBERHOME'])
             if self.implicit==True:
-                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -cp {4} -y \
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMGBSA.dat -cp {4} -y \
 {5}'.format(program, inputfile, self.ligand_name, prefix, complex, traj)
             else:
-                command='{0} -i {1} -o {2}-{3}-FINAL_MMPBSA.dat -sp {4} \
+                command='{0} -i {1} -o {2}-{3}-FINAL_MMGBSA.dat -sp {4} \
                 -cp {5} -y {6}'.format(program, inputfile, self.ligand_name, prefix, solvcomplex, complex, traj)
         output, err=run_linux_process(command)
         self.check_output(output, err, prefix, type='MMGBSA')
@@ -558,7 +562,7 @@ self.leapdir, self.ligand_name, prefix)
         all_errors=dict()
         files=glob.glob('%s/*-cpx-*FINAL*' % dir)
         if len(files) ==0:
-            print "MISSING MMPBSA OUTPUT"
+            print "MISSING MMGBSA OUTPUT"
             sys.exit()
         allcomponents=['']
         for file in files:
