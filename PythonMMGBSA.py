@@ -619,16 +619,17 @@ self.leapdir, self.ligand_name, prefix)
         ligands=all_values.keys()
         sorted_ligands=sorted(ligands, key=lambda x: all_values[x]['MMGB'])
         ohandle=open('%s/results.tbl' % dir, 'w')
-        formatkeyorder=['name  MMGB+str', 'MMGB  strain  vdW  eel_inter  eel/EGB  EGB  E_surf  E_lig'] 
-        entry=''.join(['%s\t' % x for x in formatkeyorder])
+        #format with 9 max column width
+        entry='{0:<9} {1:<9} {2:<9} {3:<9} {4:<9} {5:<9} {6:<9} {7:<9} {8:<9} {9:<9}'.format('root', 'MMGB+str', 'MMGB', \
+'strain', 'vdW', 'eel_inter', 'eel/EGB', 'EGB' , 'E_surf',  'E_lig')
         entry=''.join([ entry, '\n'])
         ohandle.write(entry)
         print entry
         keyorder=['MMGB+str', 'MMGB', 'strain', 'vdW', 'eel_inter', 'eel/EGB', 'EGB' , 'E_surf',  'E_lig'] 
         for ligand in sorted_ligands:
             all_values[ligand]['MMGB+str']=all_values[ligand]['MMGB']+all_values[ligand]['strain']
-            name='%s\t\t' % ligand
-            entry=''.join(['%0.2f\t' % round(float(all_values[ligand][x]), 2) for x in keyorder])
+            name='%-10s' % ligand
+            entry=''.join(['%-10.2f' % round(float(all_values[ligand][x]), 2) for x in keyorder])
             entry=''.join([name, entry, '\n'])
             ohandle.write(entry)
             print entry
