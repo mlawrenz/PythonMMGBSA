@@ -8,10 +8,18 @@ libraries, as well as the MMPBSA.py program suite from this paper:
 Miller III, B. R., McGee Jr., T. D., Swails, J. M. Homeyer, N. Gohlke, H. and
 Roitberg, A. E. J. Chem. Theory Comput., 2012, 8 (9) pp 3314--3321
 
-To use the program you just need to set this python directoy in your path:
-export PATH=/common/compchem/anaconda/bin:$PATH 
-or 
+To use the program you just need to set this python distribution directoy and Amber14 in your path:
+For BASH:
+export AMBERHOME=/common/compchem/src/amber14/
+export PATH=${PATH}:/common/compchem/src/amber14/bin
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/common/compchem/src/amber14/lib
+
+For CSH:
 set path = ( /common/compchem/anaconda/bin/ $path)
+set path = ( /common/compchem/src/amber14/bin/ $path)
+setenv AMBERHOME /common/compchem/src/amber14/
+*make sure this overrides any existing AMBER installations (modeling.cshrc has
+amber7)
 
 
 The main run script has a help menu callable by:
@@ -51,4 +59,11 @@ You must submit these yourself,
 with the required computing resources specified to LSF.
 An example submission script is 
 /common/compchem/mlawrenz/PythonMMGBSA/example-submission-script.sh
+
+alias sbones "ssh bones"
+alias sspock "ssh spock"
+alias sspock "ssh spock"
+alias s_papp_psi "ssh uswa-papp-psi01"
+alias s_dapp_psi "ssh uswa-dapp-psi01"
+
 
