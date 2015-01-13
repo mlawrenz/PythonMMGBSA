@@ -1,4 +1,5 @@
 import os, time
+import sys
 import PythonMMGBSA
 
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, RawTextHelpFormatter
@@ -65,6 +66,43 @@ group.add_argument('-mdsteps','--mdsteps',dest='mdsteps',  help='MD simulation t
 group.add_argument('-gpu', action="store_true", dest="gpu", help="Using flag -gpu will run a GPU MD simulation.", default=False)
 
 
+def check_environment():
+    # check for mpirun, amber14
+    if 'amber14' not in os.environ['AMBERHOME']:
+        print "NEED TO RESET AMBERHOME to /common/compchem/src/amber14/"
+        sys.exit()
+    path_items=os.environ['PATH'].split(':')
+    amber_paths=[]
+    mpi=False
+    amber=False
+    for path in path_items:
+        if 'mpich-3.1.2-build' in path:
+            print "HAVE WORKING MPIRUN: ", path
+            mpi=True
+        if 'amber' in path:
+            amber=True
+            amber_paths.append(path)
+    
+    if amber==False:
+        print "AMBER14 NEEDS TO BE IN PATH: /common/compchem/src/amber14/bin"
+        sys.exit()
+    if mpi==False:
+        print "NEED WORKING MPIRUN in path: /home/mlawrenz/mpich-3.1.2-build/bin/"
+        sys.exit()
+    if len(amber_paths) > 1:
+        if 'amber14' not in amber_paths[0]:
+            print "TWO AMBER DISTRIBUTIONS IN PATH"
+            print "AMBER14 NEEDS TO BE FIRST: /common/compchem/src/amber14/bin"
+            sys.exit()
+        else:
+            print "AMBER14 FOUND"
+    else:
+        if 'amber14' not in amber_paths[0]:
+            print "AMBER14 NEEDS TO BE IN PATH: /common/compchem/src/amber14/bin"
+        else:
+            print "AMBER14 FOUND"
+    return 
+    
 
 def main(args):
     mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, \
@@ -115,6 +153,7 @@ mdseed=args.mdseed, nproc=args.nproc, gpu=args.gpu)
 
 if __name__=="__main__":	
     args = parser.parse_args()
+    check_environment()
     if args.time==True:
         time_main(args)
     else:
