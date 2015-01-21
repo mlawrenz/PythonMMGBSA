@@ -76,7 +76,7 @@ def check_environment():
     mpi=False
     amber=False
     for path in path_items:
-        if 'mpich-3.1.2-build' in path:
+        if 'amber14-mpirun-build' in path:
             print "HAVE WORKING MPIRUN: ", path
             mpi=True
         if 'amber' in path:
@@ -87,7 +87,7 @@ def check_environment():
         print "AMBER14 NEEDS TO BE IN PATH: /common/compchem/src/amber14/bin"
         sys.exit()
     if mpi==False:
-        print "NEED WORKING MPIRUN in path: /home/mlawrenz/mpich-3.1.2-build/bin/"
+        print "NEED WORKING MPIRUN in path: /common/compchem/src/amber14-mpirun-build/"
         sys.exit()
     if len(amber_paths) > 1:
         if 'amber14' not in amber_paths[0]:
