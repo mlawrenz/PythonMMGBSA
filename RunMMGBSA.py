@@ -79,6 +79,9 @@ def check_environment():
         if 'amber14-mpirun-build' in path:
             print "HAVE WORKING MPIRUN: ", path
             mpi=True
+        if 'mpich-3.1.2-build' in path:
+            print "HAVE WORKING MPIRUN: ", path
+            mpi=True
         if 'amber' in path:
             amber=True
             amber_paths.append(path)
@@ -158,5 +161,4 @@ if __name__=="__main__":
         time_main(args)
     else:
         main(args)
-
 
