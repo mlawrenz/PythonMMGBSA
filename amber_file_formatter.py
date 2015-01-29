@@ -70,20 +70,23 @@ restraint_k=10.0, maxcycles=50000, drms=0.1, steps=100000, mdseed=-1):
     heatsteps=25000
     totalsteps=heatsteps+steps
     filename='%s/%s.in' % (dir, prefix)
+    if gbmodel!=0:
+        periodic=1
+    else:
+        periodic=0
     fhandle=open(filename, 'w')
     if md==False:
-        if implicit==False:
-            fhandle.write('''\
+        fhandle.write('''\
 minimization
   &cntrl
   imin = 1, maxcyc = {0}, ntmin = 1,
   ncyc   = 100, 
   ntx = 1, ntc = 1, ntf = 1,
-  ntb = 1, ntp = 0,
+  ntb = {1}, ntp = 0,
   ntwx = 1000, ntwe = 0, ntpr = 1000,
-  igb={1},
-  drms   = {2},
-  cut = 10.0,'''.format(maxcycles,gbmodel, drms))
+  igb={2},
+  drms   = {3},
+  cut = 10.0,'''.format(maxcycles,periodic, gbmodel, drms))
     else:
         fhandle.write('''\
 nvt equilibration with Langevin therm, SHAKE Hbonds
@@ -91,11 +94,12 @@ nvt equilibration with Langevin therm, SHAKE Hbonds
   imin = 0, ntx = 1, irest = 0, nstlim = {0},
   ntt=3,  gamma_ln=1.0, temp0 = 298.15, tempi = 0, ig = {1},
   ntc = 2, ntf = 2, dt = 0.002,
-  ntb = 0, ntp = 0, 
-  igb={2},
+  ntb = {2}, ntp = 0,
   ntwx = 1000, ntwe = 0, ntwr = 1000, ntpr = 1000,
-  cut = 10.0, 
-  nscm = 100,'''.format(totalsteps, mdseed, gbmodel))
+  cut = 10.0, iwrap = 1,
+  nscm = 100,
+  igb={3},
+  nscm = 100,'''.format(totalsteps, mdseed, periodic, gbmodel))
     if restraint_atoms!=None:
         fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
     fhandle.write('&end\n')
