@@ -75,6 +75,9 @@ def check_environment():
     amber_paths=[]
     mpi=False
     amber=False
+    if '/common/compchem/src/amber14/lib' not in os.environ['LD_LIBRARY_PATH']:
+        print "NEED AMBER14 LIB IN LD_LIBRARY_PATH: /common/compchem/src/amber14/lib"
+        sys.exit()
     for path in path_items:
         if 'amber14-mpirun-build' in path:
             print "HAVE WORKING MPIRUN: ", path

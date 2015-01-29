@@ -132,7 +132,7 @@ class ambermol:
 MD, for processing with MMGB scores'''
     def __init__(self, jobname=None, protfile=None, ligfile=None, ligcharge=None, \
 implicit=False, gbmodel=1, md=False, mdsteps=100000, mdseed=-1, maxcycles=50000, drms=0.1, nproc=8, gpu=False, \
-prot_radius=None, restraint_k=10.0, ligrestraint=None):
+prot_radius=None, restraint_k=100.0, ligrestraint=None):
         self.nproc=int(nproc)
         self.jobname=jobname
         self.gbmodel=int(gbmodel)
@@ -328,7 +328,7 @@ self.leapdir, self.ligand_name, prefix)
             if self.implicit==True:
                 print "--------------------------------------"
                 print "RUNNING MINIMIZATION WITH IMPLICIT----"
-                amber_file_formatter.write_simulation_input(md=False,dir=self.gbdir, prefix=prefix, implicit=self.implicit, gbmodel=self.gbmodel, restraint_k=self.restraint_k, restraint_atoms=restraint_atoms, maxcycles=self.maxcycles, drms=self.drms)
+                amber_file_formatter.write_simulation_input(md=False,dir=self.gbdir, prefix=prefix, gbmodel=self.gbmodel, restraint_k=self.restraint_k, restraint_atoms=restraint_atoms, maxcycles=self.maxcycles, drms=self.drms)
             else:
                 print "RUNNING MINIMIZATION WITH EXPLICIT----"
                 amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k,maxcycles=self.maxcycles, drms=self.drms)
@@ -339,7 +339,7 @@ self.leapdir, self.ligand_name, prefix)
             print "--------------------------------------"
             if self.implicit==True:
                 print "RUNNING MD SIMULATION WITH IMPLICIT----"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  implicit=self.implicit, gbmodel=self.gbmodel,\
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  gbmodel=self.gbmodel,\
 restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
 
             else:

@@ -65,8 +65,10 @@ def add_restraints(fhandle, restraint_atoms, restraint_k=10.0):
   restraintmask = ":{0}", restraint_wt = {1},'''.format(restraint_atoms, restraint_k))
     return fhandle
 
-def write_simulation_input(md, dir, prefix, gbmodel=None, implicit=False, restraint_atoms=None, \
+def write_simulation_input(md, dir, prefix, gbmodel=0, restraint_atoms=None, \
 restraint_k=10.0, maxcycles=50000, drms=0.1, steps=100000, mdseed=-1):
+    heatsteps=25000
+    totalsteps=heatsteps+steps
     filename='%s/%s.in' % (dir, prefix)
     fhandle=open(filename, 'w')
     if md==False:
@@ -74,29 +76,16 @@ restraint_k=10.0, maxcycles=50000, drms=0.1, steps=100000, mdseed=-1):
             fhandle.write('''\
 minimization
   &cntrl
-  imin = 1, maxcyc = %s, ntmin = 1,
+  imin = 1, maxcyc = {0}, ntmin = 1,
   ncyc   = 100, 
   ntx = 1, ntc = 1, ntf = 1,
   ntb = 1, ntp = 0,
   ntwx = 1000, ntwe = 0, ntpr = 1000,
-  drms   = %s,
-  cut = 10.0,''' % (maxcycles, drms))
-        if implicit==True:
-            fhandle=open(filename, 'w')
-            fhandle.write('''\
-minimization
-  &cntrl
-  imin = 1, maxcyc = %s, ntmin = 1,
-  ncyc   = 100, 
-  ntx = 1, ntc = 1, ntf = 1,
-  ntb = 0, ntp = 0,
-  ntwx = 1000, ntwe = 0, ntpr = 1000,
-  igb=%s,
-  drms   = %s,
-  cut = 10.0,''' % (maxcycles, gbmodel, drms))
+  igb={1},
+  drms   = {2},
+  cut = 10.0,'''.format(maxcycles,gbmodel, drms))
     else:
-        if implicit==True:
-            fhandle.write('''\
+        fhandle.write('''\
 nvt equilibration with Langevin therm, SHAKE Hbonds
   &cntrl
   imin = 0, ntx = 1, irest = 0, nstlim = {0},
@@ -106,21 +95,17 @@ nvt equilibration with Langevin therm, SHAKE Hbonds
   igb={2},
   ntwx = 1000, ntwe = 0, ntwr = 1000, ntpr = 1000,
   cut = 10.0, 
-  nscm = 100,'''.format(steps, mdseed, gbmodel))
-        else:
-            fhandle.write('''\
-nvt equilibration with Langevin therm, SHAKE Hbonds
-  &cntrl
-  imin = 0, ntx = 1, irest = 0, nstlim = {0},
-  ntt=3, gamma_ln=1.0, temp0 = 298.15, tempi = 0, ig = {1},
-  ntc = 2, ntf = 2, dt = 0.002,
-  ntb = 1, ntp = 0, 
-  ntwx = 1000, ntwe = 0, ntwr = 1000, ntpr = 1000,
-  cut = 10.0, iwrap = 1,
-  nscm = 100,'''.format(steps, mdseed))
+  nscm = 100,'''.format(totalsteps, mdseed, gbmodel))
     if restraint_atoms!=None:
         fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
-    fhandle.write('/\n')
+    fhandle.write('&end\n')
+    fhandle.write('&wt\n')
+    fhandle.write(''''
+step1=0, istep2={0}, value1=0, value2=300,
+&end
+&wt 
+type='TEMP0', istep1={0}, istep2={1}, value1=300, value2=300,
+&end'''.format(heatsteps, totalsteps))
     fhandle.close()
     return
 
