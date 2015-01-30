@@ -132,7 +132,7 @@ class ambermol:
 MD, for processing with MMGB scores'''
     def __init__(self, jobname=None, protfile=None, ligfile=None, ligcharge=None, \
 implicit=False, gbmodel=1, md=False, mdsteps=100000, mdseed=-1, maxcycles=50000, drms=0.1, nproc=8, gpu=False, \
-prot_radius=None, restraint_k=100.0, ligrestraint=None):
+prot_radius=None, restraint_k=10.0, ligrestraint=None):
         self.nproc=int(nproc)
         self.jobname=jobname
         self.gbmodel=int(gbmodel)
