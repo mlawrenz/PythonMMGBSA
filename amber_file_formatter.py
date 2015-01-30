@@ -68,12 +68,12 @@ def add_restraints(fhandle, restraint_atoms, restraint_k=10.0):
 def write_simulation_input(md, dir, prefix, gbmodel=0, restraint_atoms=None, \
 restraint_k=10.0, maxcycles=50000, drms=0.1, steps=100000, mdseed=-1):
     heatsteps=25000
-    totalsteps=heatsteps+steps
+    totalsteps=int(heatsteps)+int(steps)
     filename='%s/%s.in' % (dir, prefix)
     if gbmodel!=0:
-        periodic=1
+        periodic=0 # no box if gb is used
     else:
-        periodic=0
+        periodic=1
     fhandle=open(filename, 'w')
     if md==False:
         fhandle.write('''\
@@ -87,6 +87,9 @@ minimization
   igb={2},
   drms   = {3},
   cut = 10.0,'''.format(maxcycles,periodic, gbmodel, drms))
+        if restraint_atoms!=None:
+            fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
+        fhandle.write('&end\n')
     else:
         fhandle.write('''\
 nvt equilibration with Langevin therm, SHAKE Hbonds
@@ -100,17 +103,17 @@ nvt equilibration with Langevin therm, SHAKE Hbonds
   nscm = 100,
   igb={3},
   nscm = 100,'''.format(totalsteps, mdseed, periodic, gbmodel))
-    if restraint_atoms!=None:
-        fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
-    fhandle.write('&end\n')
-    fhandle.write('&wt\n')
-    fhandle.write(''''
+        if restraint_atoms!=None:
+            fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
+        fhandle.write('&end\n')
+        fhandle.write('&wt\n')
+        fhandle.write('''
 step1=0, istep2={0}, value1=0, value2=300,
 &end
 &wt 
 type='TEMP0', istep1={0}, istep2={1}, value1=300, value2=300,
 &end'''.format(heatsteps, totalsteps))
-    fhandle.close()
+        fhandle.close()
     return
 
 def write_mmgbsa_input(filename, model, start, interval, finish=100000000):
