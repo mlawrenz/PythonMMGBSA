@@ -479,7 +479,7 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
         os.chdir(self.gbdir)
         if complex==True:
             prefix='cpx'
-            start=0
+            start=25000 # skip heating step
             interval=1
             if self.md==True:
                 finish=1000000000 # MMPBSA.py will reduce to total frames
