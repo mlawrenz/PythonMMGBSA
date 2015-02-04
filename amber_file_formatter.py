@@ -37,7 +37,7 @@ savepdb complex {4}/{3}-complex.pdb
             if implicit==False:
                 fhandle.write('''\
 solvateOct complex TIP3PBOX 14.0
-#addIons complex Na+ 0
+addIons complex Na+ 0
 saveAmberParm complex {1}/{0}-complex.solv.top {1}/{0}-complex.solv.crd
 savepdb complex {1}/{0}-complex.solv.pdb
 quit'''.format(ligand_name, dir))
