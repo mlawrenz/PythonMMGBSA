@@ -1,4 +1,5 @@
 import os, time
+import numpy
 import sys
 import PythonMMGBSA
 
@@ -50,13 +51,13 @@ group.add_argument('-netc','--netcharge',dest='ligcharge',  help='Total net char
 # options with defaults
 group = parser.add_argument_group('Options with defaults:',)
 group.add_argument('-gb','--gbmodel',dest='gbmodel',  help='MMGB model version in AMBER.', default=1)
-group.add_argument('-prad','--proteinrad',dest='prot_radius',  help='Distance \
-around ligand to select moveable protein residues. Can set to None in main() for no restraints.', default=0.1)
+group.add_argument('-prad','--proteinrad',dest='prot_radius',  help='Distance around ligand to select moveable protein residues. DEFAULT IS NONE.', default=None)
 group.add_argument('-drms','--drms',dest='drms',  help='Max rmsd of energy gradient during minimization.', default=0.1)
 group.add_argument('-maxcyc','--maxcycles',dest='maxcycles',  help='Max cycles of minimization.', default=50000)
 group.add_argument('-im', action="store_true", dest="implicit", help="Using flag \
 -im will run implicit GB solvent: NOT necessarily faster for MD. Please benchmark before using implicit instead of explicit for MD.")
 group.add_argument('-mdseed','--mdseed',dest='mdseed',  help='MD seed for random number generator; default ensures unique seed per simulation.', default=-1)
+group.add_argument('-restmask','--restmask',dest='restrain_mask_file', help='Restrained residues, user-specified.', default=None)
 
 # options specific for md
 group = parser.add_argument_group('Options that pertain to MD:')
@@ -114,7 +115,9 @@ def main(args):
     mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, \
 ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, \
 prot_radius=args.prot_radius, maxcycles=args.maxcycles, drms=args.drms, \
-implicit=args.implicit, md=args.md, mdsteps=args.mdsteps, mdseed=args.mdseed, nproc=args.nproc, gpu=args.gpu)
+implicit=args.implicit, md=args.md, mdsteps=args.mdsteps, mdseed=args.mdseed, \
+nproc=args.nproc, gpu=args.gpu,  \
+restrain_mask_file=args.restrain_mask_file)
     mol.run_antechamber()
     mol.run_leap()
     mol.run_cpx_simulation() 
@@ -128,9 +131,11 @@ implicit=args.implicit, md=args.md, mdsteps=args.mdsteps, mdseed=args.mdseed, np
 def time_main(args):
     print "Timer turned on!"
     mol=PythonMMGBSA.ambermol(jobname=args.jobname, protfile=args.protfile, \
-ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel,prot_radius=args.prot_radius,\
- maxcycles=args.maxcycles, drms=args.drms, implicit=args.implicit, md=args.md, mdsteps=args.mdsteps, \
-mdseed=args.mdseed, nproc=args.nproc, gpu=args.gpu)
+ligfile=args.ligfile, ligcharge=args.ligcharge, gbmodel=args.gbmodel, \
+prot_radius=args.prot_radius, maxcycles=args.maxcycles, drms=args.drms, \
+implicit=args.implicit, md=args.md, mdsteps=args.mdsteps, mdseed=args.mdseed, \
+nproc=args.nproc, gpu=args.gpu,  \
+restrain_mask_file=args.restrain_mask_file)
     start=time.time()
     mol.run_antechamber()
     end=time.time()
