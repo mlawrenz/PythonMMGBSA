@@ -37,7 +37,7 @@ savepdb complex {4}/{3}-complex.pdb
             if implicit==False:
                 fhandle.write('''\
 solvateOct complex TIP3PBOX 14.0
-#addIons complex Na+ 0
+addIons complex Na+ 0
 saveAmberParm complex {1}/{0}-complex.solv.top {1}/{0}-complex.solv.crd
 savepdb complex {1}/{0}-complex.solv.pdb
 quit'''.format(ligand_name, dir))
@@ -65,63 +65,55 @@ def add_restraints(fhandle, restraint_atoms, restraint_k=10.0):
   restraintmask = ":{0}", restraint_wt = {1},'''.format(restraint_atoms, restraint_k))
     return fhandle
 
-def write_simulation_input(md, dir, prefix, gbmodel=None, implicit=False, restraint_atoms=None, \
+def write_simulation_input(md, dir, prefix, gbmodel=0, restraint_atoms=None, \
 restraint_k=10.0, maxcycles=50000, drms=0.1, steps=100000, mdseed=-1):
+    heatsteps=25000
+    totalsteps=int(heatsteps)+int(steps)
     filename='%s/%s.in' % (dir, prefix)
+    if gbmodel!=0:
+        periodic=0 # no box if gb is used
+    else:
+        periodic=1
     fhandle=open(filename, 'w')
     if md==False:
-        if implicit==False:
-            fhandle.write('''\
+        fhandle.write('''\
 minimization
   &cntrl
-  imin = 1, maxcyc = %s, ntmin = 1,
+  imin = 1, maxcyc = {0}, ntmin = 1,
   ncyc   = 100, 
   ntx = 1, ntc = 1, ntf = 1,
-  ntb = 1, ntp = 0,
+  ntb = {1}, ntp = 0,
   ntwx = 1000, ntwe = 0, ntpr = 1000,
-  drms   = %s,
-  cut = 10.0,''' % (maxcycles, drms))
-        if implicit==True:
-            fhandle=open(filename, 'w')
-            fhandle.write('''\
-minimization
-  &cntrl
-  imin = 1, maxcyc = %s, ntmin = 1,
-  ncyc   = 100, 
-  ntx = 1, ntc = 1, ntf = 1,
-  ntb = 0, ntp = 0,
-  ntwx = 1000, ntwe = 0, ntpr = 1000,
-  igb=%s,
-  drms   = %s,
-  cut = 10.0,''' % (maxcycles, gbmodel, drms))
+  igb={2},
+  drms   = {3},
+  cut = 10.0,'''.format(maxcycles,periodic, gbmodel, drms))
+        if restraint_atoms!=None:
+            fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
+        fhandle.write('&end\n')
     else:
-        if implicit==True:
-            fhandle.write('''\
+        fhandle.write('''\
 nvt equilibration with Langevin therm, SHAKE Hbonds
   &cntrl
   imin = 0, ntx = 1, irest = 0, nstlim = {0},
   ntt=3,  gamma_ln=1.0, temp0 = 298.15, tempi = 0, ig = {1},
   ntc = 2, ntf = 2, dt = 0.002,
-  ntb = 0, ntp = 0, 
-  igb={2},
-  ntwx = 1000, ntwe = 0, ntwr = 1000, ntpr = 1000,
-  cut = 10.0, 
-  nscm = 100,'''.format(steps, mdseed, gbmodel))
-        else:
-            fhandle.write('''\
-nvt equilibration with Langevin therm, SHAKE Hbonds
-  &cntrl
-  imin = 0, ntx = 1, irest = 0, nstlim = {0},
-  ntt=3, gamma_ln=1.0, temp0 = 298.15, tempi = 0, ig = {1},
-  ntc = 2, ntf = 2, dt = 0.002,
-  ntb = 1, ntp = 0, 
+  ntb = {2}, ntp = 0,
   ntwx = 1000, ntwe = 0, ntwr = 1000, ntpr = 1000,
   cut = 10.0, iwrap = 1,
-  nscm = 100,'''.format(steps, mdseed))
-    if restraint_atoms!=None:
-        fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
-    fhandle.write('/\n')
-    fhandle.close()
+  nscm = 100,
+  igb={3},
+  nscm = 100,'''.format(totalsteps, mdseed, periodic, gbmodel))
+        if restraint_atoms!=None:
+            fhandle=add_restraints(fhandle, restraint_atoms, restraint_k)
+        fhandle.write('&end\n')
+        fhandle.write('&wt\n')
+        fhandle.write('''
+step1=0, istep2={0}, value1=0, value2=300,
+&end
+&wt 
+type='TEMP0', istep1={0}, istep2={1}, value1=300, value2=300,
+&end'''.format(heatsteps, totalsteps))
+        fhandle.close()
     return
 
 def write_mmgbsa_input(filename, model, start, interval, finish=100000000):

@@ -35,10 +35,9 @@ def run_linux_process(command):
 
     
 
-def amber_mask_reducer(testmask, comparemask):
+def clean_mask(testmask, comparemask):
     # hack to workaround ambmask stack underflow if you specify every residue
     # also am keeping whole residues that any atom is within X of ligand
-    newlist=[]
     residues_list=testmask.split(',')
     badlist=[n for (n, i) in enumerate(residues_list) if i=='']
     for i in badlist:
@@ -55,6 +54,10 @@ def amber_mask_reducer(testmask, comparemask):
             index=residues_list.index(res)
             residues_list.pop(index)
     residue_list=numpy.array(sorted([int(i) for i in residues_list]))
+    return residue_list
+
+def amber_mask_reducer(residue_list):
+    newlist=[]
     previous=residue_list[0]
     start=previous
     for res in residue_list[1:]:
@@ -88,15 +91,16 @@ def get_restraints(prot_radius, prmtop, inpcrd, ligrestraint=False):
     if ligrestraint==True:
         # then set restraints to include MOL (allows just protein around
         # molecule to move)
-        command="ambmask -p %s -c %s -find \"! :WAT & :MOL > @%s | :MOL\" | grep ATOM | awk '{print $5}' | grep -v \"\*\*\" | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
-        converse="ambmask -p %s -c %s -find \"! :WAT & :MOL < @%s | ! :MOL\" | grep ATOM | awk '{print $5}' | grep -v \"\*\*\" | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
+        command="ambmask -p %s -c %s -find \"! :WAT,Na+,Cl- & :MOL > @%s | :MOL\" | grep ATOM | awk '{print $5}' | grep -v \"\*\*\" | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
+        converse="ambmask -p %s -c %s -find \"! :WAT,Na+,Cl- & :MOL < @%s | ! :MOL\" | grep ATOM | awk '{print $5}' | grep -v \"\*\*\" | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
     else:
         # else do not include MOL, so it moves
-        command="ambmask -p %s -c %s -find \"! :WAT & :MOL > @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
-        converse="ambmask -p %s -c %s -find \"! :WAT & :MOL < @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
+        command="ambmask -p %s -c %s -find \"! :WAT,Na+,Cl- & :MOL > @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
+        converse="ambmask -p %s -c %s -find \"! :WAT,Na+,Cl- & :MOL < @%s\" | grep ATOM |   grep -v \"\*\*\" | awk '{print $5}' | sort | uniq | tr \"\n\" \", \"" % (base_top, base_crd, prot_radius)
     mask=subprocess.check_output(command, shell=True)
     conversemask=subprocess.check_output(converse, shell=True)
-    mask=amber_mask_reducer(mask, conversemask)
+    residue_list=clean_mask(mask, conversemask)
+    mask=amber_mask_reducer(residue_list)
     name=base_top.split('.top')[0]
     # save restrained, and moveable residue atoms
     numpy.savetxt('%s_restraintresidues.txt' % name, [mask,], fmt='%s')
@@ -132,7 +136,7 @@ class ambermol:
 MD, for processing with MMGB scores'''
     def __init__(self, jobname=None, protfile=None, ligfile=None, ligcharge=None, \
 implicit=False, gbmodel=1, md=False, mdsteps=100000, mdseed=-1, maxcycles=50000, drms=0.1, nproc=8, gpu=False, \
-prot_radius=None, restraint_k=10.0, ligrestraint=None):
+prot_radius=None, restraint_k=10.0, restrain_mask_file=None, ligrestraint=None):
         self.nproc=int(nproc)
         self.jobname=jobname
         self.gbmodel=int(gbmodel)
@@ -194,8 +198,13 @@ prot_radius=None, restraint_k=10.0, ligrestraint=None):
             sys.exit()
         # set restraints
         if not prot_radius:
-            print "NO PROTEIN RESTRAINTS USED"
-            self.prot_radius=None
+            if restrain_mask_file is None:
+                print "NO PROTEIN RESTRAINTS USED"
+                self.prot_radius=None
+            else:
+                print "PASSED IN PROT RESTRAINTS USED"
+                self.prot_radius=None
+                self.restrain_mask=numpy.loadtxt(restrain_mask_file, dtype=int)
         else:
             self.prot_radius=prot_radius
             print "PROTEIN RESTRAINED AT RADIUS %s AROUND LIGAND" % self.prot_radius
@@ -328,7 +337,7 @@ self.leapdir, self.ligand_name, prefix)
             if self.implicit==True:
                 print "--------------------------------------"
                 print "RUNNING MINIMIZATION WITH IMPLICIT----"
-                amber_file_formatter.write_simulation_input(md=False,dir=self.gbdir, prefix=prefix, implicit=self.implicit, gbmodel=self.gbmodel, restraint_k=self.restraint_k, restraint_atoms=restraint_atoms, maxcycles=self.maxcycles, drms=self.drms)
+                amber_file_formatter.write_simulation_input(md=False,dir=self.gbdir, prefix=prefix, gbmodel=self.gbmodel, restraint_k=self.restraint_k, restraint_atoms=restraint_atoms, maxcycles=self.maxcycles, drms=self.drms)
             else:
                 print "RUNNING MINIMIZATION WITH EXPLICIT----"
                 amber_file_formatter.write_simulation_input(md=False, dir=self.gbdir, prefix=prefix, restraint_atoms=restraint_atoms, restraint_k=self.restraint_k,maxcycles=self.maxcycles, drms=self.drms)
@@ -339,7 +348,7 @@ self.leapdir, self.ligand_name, prefix)
             print "--------------------------------------"
             if self.implicit==True:
                 print "RUNNING MD SIMULATION WITH IMPLICIT----"
-                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  implicit=self.implicit, gbmodel=self.gbmodel,\
+                amber_file_formatter.write_simulation_input(md=True, dir=self.gbdir, prefix=prefix,  gbmodel=self.gbmodel,\
 restraint_atoms=restraint_atoms, restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
 
             else:
@@ -373,7 +382,8 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
         elif self.ligrestraint!=True and self.prot_radius!=None:
             restraint_atoms=get_restraints(self.prot_radius, prmtop, inpcrd, ligrestraint=False)
         else:
-            restraint_atoms=None
+            print "LOADING RESTRAINT ATOMS FROM PASSED IN FILES"
+            restraint_atoms=amber_mask_reducer(self.restrain_mask)
         self.restraint_atoms=restraint_atoms
         self.simulation_guts(prefix, prmtop, inpcrd)
         print "self.mincpx is %s" % prefix
@@ -479,9 +489,9 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
         os.chdir(self.gbdir)
         if complex==True:
             prefix='cpx'
-            start=0
             interval=1
             if self.md==True:
+                start=25 # skip heating step
                 finish=1000000000 # MMPBSA.py will reduce to total frames
                 if self.implicit==True:
                     traj='gbmd-cpx.mdcrd' 
@@ -490,6 +500,7 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
                     traj='md-cpx.mdcrd' 
                     solvcomplex='%s/%s-complex.solv.top' % (self.leapdir, self.ligand_name)
             else:
+                start=0 # only min
                 finish=1
                 if self.implicit==True:
                     traj='implicit-cpx.rst' 
