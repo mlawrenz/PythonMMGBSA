@@ -201,6 +201,7 @@ prot_radius=None, restraint_k=10.0, restrain_mask_file=None, ligrestraint=None):
             if restrain_mask_file is None:
                 print "NO PROTEIN RESTRAINTS USED"
                 self.prot_radius=None
+                self.restrain_mask=None
             else:
                 print "PASSED IN PROT RESTRAINTS USED"
                 self.prot_radius=None
@@ -378,13 +379,16 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
             print "MISSING COOR FILE: %s" % inpcrd
             sys.exit()
         if self.ligrestraint==True and self.prot_radius!=None:
-            restraint_atoms=get_restraints(self.prot_radius, prmtop, inpcrd, ligrestraint=True)
+            self.restraint_atoms=get_restraints(self.prot_radius, prmtop, inpcrd, ligrestraint=True)
         elif self.ligrestraint!=True and self.prot_radius!=None:
-            restraint_atoms=get_restraints(self.prot_radius, prmtop, inpcrd, ligrestraint=False)
+            self.restraint_atoms=get_restraints(self.prot_radius, prmtop, inpcrd, ligrestraint=False)
         else:
-            print "LOADING RESTRAINT ATOMS FROM PASSED IN FILES"
-            restraint_atoms=amber_mask_reducer(self.restrain_mask)
-        self.restraint_atoms=restraint_atoms
+            if self.restrain_mask==None:
+                print "NO RESTRAINTS"
+                self.restraint_atoms=None
+            else:
+                print "LOADING RESTRAINT ATOMS FROM PASSED IN FILES"
+                self.restraint_atoms=amber_mask_reducer(self.restrain_mask)
         self.simulation_guts(prefix, prmtop, inpcrd)
         print "self.mincpx is %s" % prefix
         if self.md==True:
