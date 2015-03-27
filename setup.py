@@ -47,7 +47,8 @@ setup(name='PythonMMGBSA',
       author_email='mlawrenz@amgen.com',
       version = '1.0',
       description = 'Endpoint protein-ligand binding free energy calculations', 
-      py_modules = ['PythonMMGBSA', 'amber_file_formatter'],
+      py_modules = ['PythonMMGBSA', 'amber_file_formatter', 'ana_stats'],
       scripts= ['RunMMGBSA.py',])
+
 
 
