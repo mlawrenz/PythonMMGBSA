@@ -36,7 +36,7 @@ savepdb complex {4}/{3}-complex.pdb
 '''.format(newligfile,protfile, radii, ligand_name, dir))
             if implicit==False:
                 fhandle.write('''\
-solvateOct complex TIP3PBOX 14.0
+solvateOct complex TIP3PBOX 12.0
 addIons complex Na+ 0
 saveAmberParm complex {1}/{0}-complex.solv.top {1}/{0}-complex.solv.crd
 savepdb complex {1}/{0}-complex.solv.pdb
@@ -47,7 +47,7 @@ quit'''.format(ligand_name, dir))
             # only need to rewrite ligand topo if solvating it
             fhandle.write('''\
 mol=loadmol2 {0}
-solvateOct mol TIP3PBOX 14.0
+solvateOct mol TIP3PBOX 12.0
 set default PBradii {3}
 saveAmberParm mol {1}/{2}-ligand.solv.top {1}/{2}-ligand.solv.crd
 savepdb mol {1}/{2}-ligand.solv.amber.pdb'''.format( newligfile, dir, ligand_name, radii))

@@ -563,7 +563,7 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
                 sys.exit()
         shutil.rmtree(self.antdir)
         shutil.rmtree(self.leapdir)
-        os.system('rm %s/*in' % self.gbdir)
+        #os.system('rm %s/*in' % self.gbdir)
         os.system('rm %s/*rst' % self.gbdir)
         os.system('rm %s/*out' % self.gbdir)
         os.system('rm %s/*ptraj*' % self.gbdir)
@@ -579,7 +579,6 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
         if len(files) ==0:
             print "MISSING MMGBSA OUTPUT"
             sys.exit()
-        allcomponents=['']
         for file in files:
             base=os.path.basename(file)
             ligand=base.split('-cpx-')[0]

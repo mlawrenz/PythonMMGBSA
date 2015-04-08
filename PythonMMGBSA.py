@@ -579,7 +579,6 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
         if len(files) ==0:
             print "MISSING MMGBSA OUTPUT"
             sys.exit()
-        allcomponents=['']
         for file in files:
             base=os.path.basename(file)
             ligand=base.split('-cpx-')[0]
