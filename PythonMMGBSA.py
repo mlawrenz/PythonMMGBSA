@@ -308,6 +308,9 @@ prot_radius=None, restraint_k=10.0, restrain_mask_file=None, ligrestraint=None):
         os.chdir(self.leapdir)
         print "--------------------------------------"
         print "RUNNING LEAP FOR COMPLEX--------------"
+        print "WARNING: DOES NOT AUTOFORM DISULFIDES "
+        print "WARNING: DOES NOT OPTIMIZE HISTIDINE PROT"
+        print "EDIT STRUCTURE AND LEAP FILE TO CHECK THIS"
         frcmodfile='%s/%s.frcmod' % (self.antdir, self.ligand_name)
         prefix='cpx'
         amber_file_formatter.write_leap(self.leapdir, prefix, self.ligand_name, self.radii, frcmodfile, self.amberligfile, self.protfile, complex=True, implicit=self.implicit)
