@@ -149,31 +149,41 @@ prot_radius=None, restraint_k=10.0, restrain_mask_file=None, ligrestraint=None):
         self.mdsteps=mdsteps
         self.mdseed=mdseed
         self.protfile=os.path.abspath(protfile)
-        self.ligfile=os.path.abspath(ligfile)
-        self.ligand_name=os.path.basename(ligfile).split('.mol2')[0]
-        print "--------------------------------------"
-        print "SYSTEM SET UP-------------------------"
-        # check ligand file for resname MOL
-        command="more %s | awk '{if (NF==9) {print $8}}' | head -1" % self.ligfile
-        output=subprocess.check_output(command, shell=True)
-        output=output.rstrip('\n')
-        if output!='MOL':
-            print "NEED TO NAME LIGAND \"MOL\""
-            sys.exit()
-        # check for ligand charge
-        if not ligcharge:
-            print "CONFIRM LIGAND CHARGE"
-            sys.exit()
+        if ligfile!=None:
+            self.ligfile=os.path.abspath(ligfile)
+            self.ligand_name=os.path.basename(ligfile).split('.mol2')[0]
+            print "--------------------------------------"
+            print "SYSTEM SET UP-------------------------"
+            # check ligand file for resname MOL
+            command="more %s | awk '{if (NF==9) {print $8}}' | head -1" % self.ligfile
+            output=subprocess.check_output(command, shell=True)
+            output=output.rstrip('\n')
+            if output!='MOL':
+                print "NEED TO NAME LIGAND \"MOL\""
+                sys.exit()
+            # check for ligand charge
+            if not ligcharge:
+                print "CONFIRM LIGAND CHARGE"
+                sys.exit()
+            else:
+                print "LIGAND CHARGE IS %s" % ligcharge
+                self.ligcharge=int(ligcharge)
+            self.charge_method='bcc'
+            print "USING AM1-BCC CHARGE METHOD FOR LIGAND"
+            print "USING MMGB=%s MODEL FOR MMGBSA CALC" % self.gbmodel
+            # set tmp directories and main output directory self.gbdir
+            self.antdir='%s/%s-antechamber-output' % (os.getcwd(), self.ligand_name)
+            self.leapdir='%s/%s-leap-output' % (os.getcwd(), self.jobname)
+            self.amberligfile='%s/%s.amber.mol2' % (self.antdir, self.ligand_name)
         else:
-            print "LIGAND CHARGE IS %s" % ligcharge
-            self.ligcharge=int(ligcharge)
-        self.charge_method='bcc'
-        print "USING AM1-BCC CHARGE METHOD FOR LIGAND"
-        print "USING MMGB=%s MODEL FOR MMGBSA CALC" % self.gbmodel
-        # set tmp directories and main output directory self.gbdir
-        self.antdir='%s/%s-antechamber-output' % (os.getcwd(), self.ligand_name)
-        self.leapdir='%s/%s-leap-output' % (os.getcwd(), self.jobname)
-        self.amberligfile='%s/%s.amber.mol2' % (self.antdir, self.ligand_name)
+            self.ligfile=None
+            self.ligand_name=None
+            self.ligcharge=None
+            self.charge_method=None
+            self.antdir=None
+            self.leapdir=None
+            self.amberligfile=None
+            print "NO LIGAND INCLUDED"
         if self.md==True:
             if implicit==True:
                 self.mdprefix='gbmd-cpx'
@@ -213,6 +223,7 @@ prot_radius=None, restraint_k=10.0, restrain_mask_file=None, ligrestraint=None):
         print "RESTRAINT FORCE %s kcal/mol*A2" % restraint_k
         if not ligrestraint:
             self.ligrestraint=None
+            self.restraint_atoms=None
             print "NO LIGAND RESTRAINTS USED"
         else:
             self.ligrestraint=True
@@ -455,7 +466,7 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
         print "MMGB CALC FINISHED ON LIGAND"
         return
 
-    def mmgbsa_guts(self, prefix, start, finish, solvcomplex, complex, traj, interval=1, protein=None, ligand=None):
+    def mmgbsa_guts(self, prefix, start, finish, complex, traj, solvcomplex=None, interval=1, protein=None, ligand=None):
         # should be in gbdir here
         inputfile='%s-mmgb.in' % prefix
         # use reduced number of processes so don't run out of memory
@@ -475,6 +486,14 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
             else:
                 command='{0} -i {1} -o {2}-{3}-FINAL_MMGBSA.dat -sp {4} \
                 -cp {5} -rp {6} -lp {7} -y {8}'.format(program, inputfile, self.ligand_name, prefix, solvcomplex, complex, protein, ligand, traj)
+        elif protein!=None and ligand==None:
+            print "--------------------------------------"
+            print "RUNNING PROTEIN ONLY MMGBSA CALC------------"
+            program='{0}/bin/MMPBSA.py'.format(os.environ['AMBERHOME'])
+            if self.implicit==True:
+                command='{0} -i {1} -o {2}-FINAL_MMGBSA.dat -cp {3} -y {4}'.format(program, inputfile, prefix, complex, traj)
+            else:
+                command='{0} -i {1} -o {2}-FINAL_MMGBSA.dat -sp {3} -cp {4} -y {5}'.format(program, inputfile, prefix, solvcomplex, complex, traj)
         else:
             print "--------------------------------------"
             print "RUNNING LIGAND MMGBSA CALC------------"
@@ -518,7 +537,7 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
             complex='%s/%s-complex.top' % (self.leapdir, self.ligand_name)
             protein='%s/%s-protein.top' % (self.leapdir, self.ligand_name)
             ligand='%s/%s-ligand.top' % (self.leapdir, self.ligand_name)
-            self.mmgbsa_guts(prefix, start, finish, solvcomplex, complex, traj, interval=1, protein=protein, ligand=ligand)
+            self.mmgbsa_guts(prefix, start, finish, complex, traj, solvcomplex=solvcomplex, interval=1, protein=protein, ligand=ligand)
         else:
             #setup files for MMGBSA.py in Amber14 to run MMGB free energy for ligand strain
             start=0
@@ -536,10 +555,11 @@ restraint_k=self.restraint_k, steps=self.mdsteps, mdseed=self.mdseed)
                 final_traj='min-ligand.rst' 
             # first get initial GB energy of ligand in complex
             prefix='ligcpx'
-            self.mmgbsa_guts(prefix, start, finish, solvcomplex, complex, initial_traj, interval=1)
+            self.mmgbsa_guts(prefix, start, finish, complex, initial_traj, solvcomplex=solvcomplex, interval=1)
             # next GB energy of ligand minimized in solution
             prefix='ligsolv'
-            self.mmgbsa_guts(prefix, start, finish, solvcomplex, complex, final_traj, interval=1)
+            self.mmgbsa_guts(prefix, start, finish, complex, final_traj, solvcomplex=solvcomplex, interval=1)
+
         os.chdir(origdir)
         return
 

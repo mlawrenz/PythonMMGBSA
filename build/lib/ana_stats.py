@@ -51,7 +51,7 @@ def cum_avg(data):
 
 def roll_avg(data, step):
     data=pandas.DataFrame({'data':data})
-    out=pandas.rolling_mean(data, 2)
+    out=pandas.rolling_mean(data, step)
     return numpy.array([i[0] for i in out.values])
 
 
